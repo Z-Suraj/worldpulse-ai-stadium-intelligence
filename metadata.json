@@ -1,0 +1,6 @@
+{
+  "name": "WorldPulse AI",
+  "description": "A next-generation GenAI-powered stadium intelligence ecosystem for the FIFA World Cup 2026, combining real-time digital twin simulations, operational KPIs, multi-role dashboards, and the FIFA Copilot.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
