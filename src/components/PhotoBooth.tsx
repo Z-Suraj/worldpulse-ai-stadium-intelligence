@@ -179,6 +179,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
       <div className="flex border-b border-gray-900 pb-2">
         <button
           onClick={() => setActiveTab("image")}
+          aria-label="Switch to AI Photo Booth and Ticket Posters Tab"
           className={`flex-1 text-xs py-2 font-mono flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === "image" ? "border-purple-500 text-purple-300 font-semibold" : "border-transparent text-gray-500 hover:text-gray-300"}`}
         >
           <Image className="w-4 h-4" />
@@ -186,6 +187,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
         </button>
         <button
           onClick={() => setActiveTab("video")}
+          aria-label="Switch to Veo Video Highlights Tab"
           className={`flex-1 text-xs py-2 font-mono flex items-center justify-center gap-2 border-b-2 transition-all ${activeTab === "video" ? "border-purple-500 text-purple-300 font-semibold" : "border-transparent text-gray-500 hover:text-gray-300"}`}
         >
           <Film className="w-4 h-4" />
@@ -296,6 +298,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                         e.stopPropagation();
                         setSelectedFile(null);
                       }}
+                      aria-label="Clear selected image file"
                       className="text-[9px] text-gray-500 hover:text-white"
                     >
                       Clear
@@ -314,6 +317,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
               <button
                 onClick={handleGenerateImage}
                 disabled={imgLoading}
+                aria-label="Generate Custom Poster or Hype Card with Gemini"
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl text-xs py-2.5 transition-all flex items-center justify-center gap-1.5"
               >
                 {imgLoading ? (
@@ -343,6 +347,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                 </div>
                 <button
                   onClick={() => setVidSourceImg(generatedImg)}
+                  aria-label="Send generated image to Veo Highlights Video Animator"
                   className="w-full bg-cyan-950 hover:bg-cyan-900 border border-cyan-900 text-cyan-300 py-1.5 rounded-lg text-[10px] font-mono transition-all"
                 >
                   🎬 Send to Veo Highlights Video Animator
@@ -429,6 +434,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                         e.stopPropagation();
                         setVidSourceImg(null);
                       }}
+                      aria-label="Clear attached starting keyframe photo"
                       className="text-[9px] text-gray-500 hover:text-white"
                     >
                       Clear
@@ -447,6 +453,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
               <button
                 onClick={handleGenerateVideo}
                 disabled={vidLoading}
+                aria-label="Render Veo video highlights loop clip with Gemini Veo"
                 className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-xl text-xs py-2.5 transition-all flex items-center justify-center gap-1.5"
               >
                 {vidLoading ? (

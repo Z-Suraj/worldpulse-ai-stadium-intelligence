@@ -470,6 +470,7 @@ export default function MedicalSupport({
                   <button
                     key={asset.id}
                     onClick={() => setSelectedAsset(asset)}
+                    aria-label={`Select tactical node ${asset.name}`}
                     className="absolute group transition-transform hover:scale-120 active:scale-90"
                     style={{
                       left: `${(asset.x / 400) * 100}%`,
@@ -672,6 +673,7 @@ export default function MedicalSupport({
                         {sta.aedStatus.includes("Refill") ? (
                           <button
                             onClick={() => handleAedRefill(sta.id)}
+                            aria-label={`Restock AED for station ${sta.name}`}
                             className="bg-red-900/60 hover:bg-red-900 text-white text-[9px] font-bold px-2.5 py-1 rounded transition-all"
                           >
                             ⚡ RESTOCK AED
@@ -788,6 +790,7 @@ export default function MedicalSupport({
                         {alarm.status === "Unassigned" && (
                           <button
                             onClick={() => handleDispatchManual(alarm.id, "Squad Bravo")}
+                            aria-label={`Dispatch emergency squad for alert ${alarm.id}`}
                             className="bg-red-900 hover:bg-red-800 text-white px-2 py-0.5 rounded text-[9px] font-bold"
                           >
                             DISPATCH SQUAD
@@ -796,6 +799,7 @@ export default function MedicalSupport({
                         {alarm.status === "Responding" && (
                           <button
                             onClick={() => handleResolveCase(alarm.id)}
+                            aria-label={`Mark emergency alert ${alarm.id} as resolved`}
                             className="bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-900/40 px-2 py-0.5 rounded text-[9px] font-bold"
                           >
                             RESOLVE
@@ -954,6 +958,7 @@ export default function MedicalSupport({
                     <button
                       onClick={() => handleEvacTransferSim(hos.id)}
                       disabled={hos.bedsAvailable === 0}
+                      aria-label={`Request helicopter flight transfer to ${hos.name}`}
                       className="bg-indigo-950 hover:bg-indigo-900 border border-indigo-900 text-indigo-300 font-mono text-[9px] px-2.5 py-1 rounded transition-all"
                     >
                       🚁 REQUEST FLIGHT TRANSFER
@@ -1036,6 +1041,7 @@ export default function MedicalSupport({
               
               <button
                 onClick={handleExitOverrideTrigger}
+                aria-label="Toggle global turnstile emergency override"
                 className={`text-[10px] font-mono font-bold px-3 py-1 rounded border transition-all ${
                   exitOverrideFlashing 
                     ? "bg-red-600 border-red-500 text-white animate-flash" 

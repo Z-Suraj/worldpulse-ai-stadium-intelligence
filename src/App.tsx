@@ -1406,6 +1406,7 @@ export default function App() {
                       <button
                         onClick={handleGenerateItinerary}
                         disabled={isGeneratingItinerary}
+                        aria-label="Generate Smart Fan Itinerary Plan"
                         className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg text-xs py-2 transition-all flex items-center justify-center gap-1.5 shadow"
                       >
                         {isGeneratingItinerary ? (
@@ -2155,8 +2156,9 @@ export default function App() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-3">
-                      <span className="text-[9px] text-gray-400 font-mono uppercase block">1. Select Incident Channel</span>
+                      <label htmlFor="incident-channel-select" className="text-[9px] text-gray-400 font-mono uppercase block">1. Select Incident Channel</label>
                       <select
+                        id="incident-channel-select"
                         value={selectedEmergencyScenario}
                         onChange={(e) => setSelectedEmergencyScenario(e.target.value)}
                         className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
@@ -2170,6 +2172,7 @@ export default function App() {
                         type="button"
                         onClick={triggerOfflineScenarioSpeech}
                         disabled={isBroadcastSimulating}
+                        aria-label="Trigger Offline Scenario Speech Broadcast"
                         className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-amber-950/30 disabled:text-gray-600 text-gray-950 font-bold py-2.5 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         {isBroadcastSimulating ? (

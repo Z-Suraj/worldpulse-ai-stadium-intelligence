@@ -81,6 +81,7 @@ export default function StrategicScenarioPlanner() {
         <button
           onClick={handleRunThinkingSimulation}
           disabled={loading}
+          aria-label="Run deep strategy evacuation simulation powered by Gemini reasoning"
           className="w-full bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-900 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/20 text-purple-200 font-semibold rounded-xl text-xs py-2.5 transition-all flex items-center justify-center gap-1.5"
         >
           {loading ? (

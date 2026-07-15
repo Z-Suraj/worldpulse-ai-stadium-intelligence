@@ -26,6 +26,14 @@ const ai = new GoogleGenAI({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Set secure communication headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
 // In-memory global state for simulation
 let stadiumState = {
   activeStadium: "MetLife Stadium, New York/New Jersey",
@@ -1396,6 +1404,10 @@ Your custom soccer stadium scene has been rendered using our premium scenic data
 app.post("/api/edit-image", async (req, res) => {
   const { prompt, imageBase64, mimeType, aspectRatio, imageSize } = req.body;
 
+  if (mimeType && !mimeType.startsWith("image/")) {
+    return res.status(400).json({ error: "Invalid mimeType. Only image types are permitted." });
+  }
+
   if (!process.env.GEMINI_API_KEY) {
     return res.json({
       text: "Offline Mode: Edited image would be returned.",
@@ -1454,6 +1466,10 @@ We preserved your input asset and applied localized ambient adjustments under of
 // 7. API: Video Generation using Veo (Start Operation)
 app.post("/api/generate-video", async (req, res) => {
   const { prompt, imageBase64, mimeType, aspectRatio } = req.body;
+
+  if (mimeType && !mimeType.startsWith("image/")) {
+    return res.status(400).json({ error: "Invalid mimeType. Starting keyframe must be an image." });
+  }
 
   if (!process.env.GEMINI_API_KEY) {
     return res.json({
@@ -1540,6 +1556,11 @@ app.post("/api/video-download", async (req, res) => {
 app.post("/api/analyze-multimodal", async (req, res) => {
   const { fileBase64, mimeType, prompt } = req.body;
 
+  const allowedAnalyzeMimes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "video/mp4", "video/quicktime", "audio/mp3", "audio/wav", "audio/ogg", "audio/webm", "audio/mpeg"];
+  if (mimeType && !allowedAnalyzeMimes.includes(mimeType) && !mimeType.startsWith("image/") && !mimeType.startsWith("video/") && !mimeType.startsWith("audio/")) {
+    return res.status(400).json({ error: "Unsupported file format. Please upload valid images, videos, or audio recordings." });
+  }
+
   if (!process.env.GEMINI_API_KEY) {
     return res.json({
       text: "### Multimodal Analysis (offline mode)\n- Received a file with mimeType: **" + mimeType + "**\n- Analyze requests require an active \`GEMINI_API_KEY\`. Based on typical stadium scenes, everything looks safe, queue lines are moving smoothly, and weather is clear!"
@@ -1600,6 +1621,10 @@ Our computer vision model processed your uploaded asset:
 // 11. API: Transcribe Audio (with fallback cascade)
 app.post("/api/transcribe-audio", async (req, res) => {
   const { audioBase64, mimeType } = req.body;
+
+  if (mimeType && !mimeType.startsWith("audio/") && !mimeType.includes("webm") && !mimeType.includes("wav") && !mimeType.includes("ogg") && !mimeType.includes("mp4")) {
+    return res.status(400).json({ error: "Invalid media format. Only audio recording files are accepted." });
+  }
 
   if (!process.env.GEMINI_API_KEY) {
     return res.json({

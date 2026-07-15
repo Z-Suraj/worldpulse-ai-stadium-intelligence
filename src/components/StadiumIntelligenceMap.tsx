@@ -524,6 +524,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
                 <button
                   key={id}
                   onClick={() => onSelectCity(id)}
+                  aria-label={`Select stadium node ${id}`}
                   className={`py-1 text-[10px] font-mono font-bold rounded-lg transition-all ${
                     selectedCityId === id
                       ? "bg-purple-600 text-white border border-purple-400/50 shadow-lg shadow-purple-900/40"
@@ -608,6 +609,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
                 </span>
                 <button
                   onClick={() => setSelectedFeature(null)}
+                  aria-label="Close selected feature details"
                   className="text-[9px] text-gray-500 hover:text-white font-mono"
                 >
                   [x]
@@ -645,6 +647,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
         <div id="map-overlay-controls" className="absolute top-3 right-3 z-30 flex flex-col gap-2 pointer-events-auto">
           <button
             onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
             className="w-8 h-8 rounded-lg bg-gray-950/90 border border-gray-800 hover:border-purple-500 text-gray-400 hover:text-white flex items-center justify-center transition-all shadow-lg shadow-black/50 cursor-pointer"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
           >
@@ -654,6 +657,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
           <div className="flex flex-col rounded-lg bg-gray-950/90 border border-gray-800 overflow-hidden shadow-lg shadow-black/50">
             <button
               onClick={zoomIn}
+              aria-label="Zoom In"
               className="w-8 h-8 hover:bg-gray-900 border-b border-gray-900 text-gray-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               title="Zoom In"
             >
@@ -661,6 +665,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
             </button>
             <button
               onClick={zoomOut}
+              aria-label="Zoom Out"
               className="w-8 h-8 hover:bg-gray-900 text-gray-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               title="Zoom Out"
             >
@@ -670,6 +675,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
 
           <button
             onClick={openInGoogleMaps}
+            aria-label="Open Arena Venue in Google Maps"
             className="px-2.5 py-1.5 rounded-lg bg-gray-950/90 border border-gray-800 hover:border-purple-500 text-gray-400 hover:text-white flex items-center gap-1 transition-all text-[10px] font-mono font-bold shadow-lg shadow-black/50 cursor-pointer"
             title="Open Venue in Google Maps"
           >
@@ -679,6 +685,7 @@ export default function StadiumIntelligenceMap({ selectedCityId, onSelectCity }:
 
           <button
             onClick={getDirections}
+            aria-label="Get driving or transit directions"
             className="px-2.5 py-1.5 rounded-lg bg-gray-950/90 border border-gray-800 hover:border-purple-500 text-gray-400 hover:text-white flex items-center gap-1 transition-all text-[10px] font-mono font-bold shadow-lg shadow-black/50 cursor-pointer"
             title="Get transit and driving directions"
           >

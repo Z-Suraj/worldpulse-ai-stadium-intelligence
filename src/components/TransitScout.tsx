@@ -63,6 +63,7 @@ export default function TransitScout() {
           <button
             type="button"
             onClick={() => setGroundingType("search")}
+            aria-label="Switch to Google Search Grounding mode"
             className={`text-[10px] py-1.5 rounded-lg font-mono flex items-center justify-center gap-1.5 transition-all ${groundingType === "search" ? "bg-cyan-950/50 text-cyan-300 font-semibold border border-cyan-900/40" : "text-gray-500 hover:text-white"}`}
           >
             <Search className="w-3.5 h-3.5" />
@@ -71,6 +72,7 @@ export default function TransitScout() {
           <button
             type="button"
             onClick={() => setGroundingType("maps")}
+            aria-label="Switch to Google Maps Grounding mode"
             className={`text-[10px] py-1.5 rounded-lg font-mono flex items-center justify-center gap-1.5 transition-all ${groundingType === "maps" ? "bg-cyan-950/50 text-cyan-300 font-semibold border border-cyan-900/40" : "text-gray-500 hover:text-white"}`}
           >
             <MapPin className="w-3.5 h-3.5" />
@@ -93,6 +95,7 @@ export default function TransitScout() {
         <button
           onClick={handleScoutGrounding}
           disabled={loading}
+          aria-label="Verify real-time location and transit information using Google search and maps grounding"
           className="w-full bg-cyan-900 hover:bg-cyan-800 text-white font-semibold rounded-xl text-xs py-2 transition-all flex items-center justify-center gap-1.5"
         >
           {loading ? (
