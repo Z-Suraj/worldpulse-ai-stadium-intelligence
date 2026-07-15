@@ -337,7 +337,16 @@ export default function LiveWalkieTalkie() {
 
             <div
               onClick={handleOrbClick}
-              className={`w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl relative cursor-pointer hover:scale-105 active:scale-95 ${
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleOrbClick();
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Toggle voice dispatcher or trigger voice prompt"
+              className={`w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl relative cursor-pointer hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
                 voiceState === "listening" 
                   ? "bg-gradient-to-tr from-purple-950 via-purple-900 to-indigo-900 border-2 border-purple-400 shadow-purple-500/30 text-purple-300 animate-pulse" 
                   : voiceState === "thinking" 

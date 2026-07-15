@@ -208,7 +208,16 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
         <span className="text-[10px] font-mono text-gray-500 block mb-1">Step 1: Multimodal CCTV Analysis</span>
         <div
           onClick={() => cctvInputRef.current?.click()}
-          className="border border-dashed border-gray-900 hover:border-red-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              cctvInputRef.current?.click();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Click or press Enter to upload CCTV clip"
+          className="border border-dashed border-gray-900 hover:border-red-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all focus:outline-none focus:ring-1 focus:ring-red-500/50"
         >
           <input
             type="file"
@@ -216,6 +225,7 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
             onChange={handleCctvChange}
             className="hidden"
             accept="image/*,video/*"
+            aria-label="Upload CCTV video or image"
           />
           {cctvFile ? (
             <div className="flex items-center justify-between text-[10px]">
@@ -314,8 +324,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
         <span className="text-[10px] font-mono text-gray-500 block">Step 3: Deploy Crew & File Report</span>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[9px] font-mono text-gray-500 block mb-0.5">Subject</label>
+            <label htmlFor="inc-subject" className="text-[9px] font-mono text-gray-500 block mb-0.5">Subject</label>
             <input
+              id="inc-subject"
               type="text"
               required
               value={title}
@@ -325,8 +336,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
             />
           </div>
           <div>
-            <label className="text-[9px] font-mono text-gray-500 block mb-0.5">Assigned Zone</label>
+            <label htmlFor="inc-zone" className="text-[9px] font-mono text-gray-500 block mb-0.5">Assigned Zone</label>
             <input
+              id="inc-zone"
               type="text"
               required
               value={location}
@@ -338,8 +350,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[9px] font-mono text-gray-500 block mb-0.5">Severity Level</label>
+            <label htmlFor="inc-severity" className="text-[9px] font-mono text-gray-500 block mb-0.5">Severity Level</label>
             <select
+              id="inc-severity"
               value={severity}
               onChange={(e) => setSeverity(e.target.value as any)}
               className="w-full bg-gray-950 border border-gray-900 rounded-lg px-2 py-1.5 text-white focus:outline-none"
@@ -361,8 +374,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
         </div>
 
         <div>
-          <label className="text-[9px] font-mono text-gray-500 block mb-0.5">Incident Report Log</label>
+          <label htmlFor="inc-report" className="text-[9px] font-mono text-gray-500 block mb-0.5">Incident Report Log</label>
           <textarea
+            id="inc-report"
             required
             rows={2}
             value={description}

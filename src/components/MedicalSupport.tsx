@@ -813,8 +813,9 @@ export default function MedicalSupport({
               <span className="text-[9px] text-gray-500 font-mono uppercase block">Intake Form: Report New Case</span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <label className="text-[9px] font-mono text-gray-400 block mb-1">Incident Type</label>
+                  <label htmlFor="med-incident-type" className="text-[9px] font-mono text-gray-400 block mb-1">Incident Type</label>
                   <select
+                    id="med-incident-type"
                     value={newSymptom}
                     onChange={(e) => setNewSymptom(e.target.value)}
                     className="w-full bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none"
@@ -827,8 +828,9 @@ export default function MedicalSupport({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-mono text-gray-400 block mb-1">Location</label>
+                  <label htmlFor="med-location" className="text-[9px] font-mono text-gray-400 block mb-1">Location</label>
                   <input
+                    id="med-location"
                     type="text"
                     required
                     value={newLocation}
@@ -840,8 +842,9 @@ export default function MedicalSupport({
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <label className="text-[9px] font-mono text-gray-400 block mb-1">Severity</label>
+                  <label htmlFor="med-severity" className="text-[9px] font-mono text-gray-400 block mb-1">Severity</label>
                   <select
+                    id="med-severity"
                     value={newSeverity}
                     onChange={(e) => setNewSeverity(e.target.value as any)}
                     className="w-full bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none"
@@ -868,6 +871,7 @@ export default function MedicalSupport({
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Details: patient gender, age, symptoms..."
+                  aria-label="Details: patient gender, age, symptoms..."
                   className="w-full bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-[10px] text-white focus:outline-none"
                 />
               </div>

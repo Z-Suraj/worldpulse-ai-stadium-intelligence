@@ -52,8 +52,9 @@ export default function StrategicScenarioPlanner() {
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-mono text-gray-500 block mb-1">Select Crisis Scenario Template</label>
+          <label htmlFor="strat-crisis-select" className="text-[10px] font-mono text-gray-500 block mb-1">Select Crisis Scenario Template</label>
           <select
+            id="strat-crisis-select"
             value={scenario}
             onChange={(e) => setScenario(e.target.value)}
             className="w-full bg-gray-950 border border-gray-900 rounded-xl p-2.5 text-xs text-white focus:outline-none"
@@ -66,8 +67,9 @@ export default function StrategicScenarioPlanner() {
         </div>
 
         <div>
-          <label className="text-[10px] font-mono text-gray-500 block mb-1">Additional Operational Directives</label>
+          <label htmlFor="strat-directives-textarea" className="text-[10px] font-mono text-gray-500 block mb-1">Additional Operational Directives</label>
           <textarea
+            id="strat-directives-textarea"
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
             rows={2}

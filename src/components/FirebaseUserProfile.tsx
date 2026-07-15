@@ -185,6 +185,7 @@ export default function FirebaseUserProfile({ onUserChange }: FirebaseUserProfil
               onClick={handleSignOut}
               className="p-1.5 hover:bg-gray-900 border border-gray-900 rounded-lg text-gray-400 hover:text-white transition-colors"
               title="Sign Out"
+              aria-label="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>

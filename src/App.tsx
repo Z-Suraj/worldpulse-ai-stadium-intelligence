@@ -1341,8 +1341,9 @@ export default function App() {
 
                   <div className="space-y-3">
                     <div>
-                      <label className="text-[10px] font-mono text-gray-400 block mb-1">Your Seat/Section</label>
+                      <label htmlFor="fan-seat-input" className="text-[10px] font-mono text-gray-400 block mb-1">Your Seat/Section</label>
                       <input
+                        id="fan-seat-input"
                         type="text"
                         value={fanSeat}
                         onChange={(e) => setFanSeat(e.target.value)}
@@ -1351,8 +1352,9 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-mono text-gray-400 block mb-1">Select Match Day Game</label>
+                      <label htmlFor="fan-match-select" className="text-[10px] font-mono text-gray-400 block mb-1">Select Match Day Game</label>
                       <select
+                        id="fan-match-select"
                         value={selectedMatchId}
                         onChange={(e) => {
                           const mId = e.target.value;
@@ -1374,8 +1376,9 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-mono text-gray-400 block mb-1">Ticket Class</label>
+                      <label htmlFor="fan-ticket-select" className="text-[10px] font-mono text-gray-400 block mb-1">Ticket Class</label>
                       <select
+                        id="fan-ticket-select"
                         value={ticketType}
                         onChange={(e) => setTicketType(e.target.value)}
                         className="w-full bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
@@ -1898,10 +1901,11 @@ export default function App() {
 
               <form onSubmit={handleCreateIncident} className="space-y-4 text-xs">
                 <div>
-                  <label className="text-[10px] font-mono text-gray-400 block mb-1">
+                  <label htmlFor="rep-inc-title" className="text-[10px] font-mono text-gray-400 block mb-1">
                     Incident Title / Subject
                   </label>
                   <input
+                    id="rep-inc-title"
                     type="text"
                     required
                     value={newIncidentTitle}
@@ -1913,8 +1917,9 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-mono text-gray-400 block mb-1">Location</label>
+                    <label htmlFor="rep-inc-loc" className="text-[10px] font-mono text-gray-400 block mb-1">Location</label>
                     <input
+                      id="rep-inc-loc"
                       type="text"
                       required
                       value={newIncidentLoc}
@@ -1923,8 +1928,9 @@ export default function App() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-gray-400 block mb-1">Severity Level</label>
+                    <label htmlFor="rep-inc-sev" className="text-[10px] font-mono text-gray-400 block mb-1">Severity Level</label>
                     <select
+                      id="rep-inc-sev"
                       value={newIncidentSeverity}
                       onChange={(e) => setNewIncidentSeverity(e.target.value as any)}
                       className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-white focus:outline-none"
@@ -1937,10 +1943,11 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-mono text-gray-400 block mb-1">
+                  <label htmlFor="rep-inc-desc" className="text-[10px] font-mono text-gray-400 block mb-1">
                     Event Description & Dispatch Instructions
                   </label>
                   <textarea
+                    id="rep-inc-desc"
                     rows={3}
                     value={newIncidentDesc}
                     onChange={(e) => setNewIncidentDesc(e.target.value)}

@@ -402,6 +402,7 @@ Please configure your \`GEMINI_API_KEY\` to activate custom natural language ans
             onClick={clearChat}
             className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer"
             title="Clear Chat"
+            aria-label="Clear Chat"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -568,10 +569,12 @@ Please configure your \`GEMINI_API_KEY\` to activate custom natural language ans
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Query FIFA Copilot..."
+            aria-label="Query FIFA Copilot"
             className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-600/50"
           />
           <button
             onClick={() => sendMessage()}
+            aria-label="Send message"
             className="absolute right-2 top-1.5 p-1 text-purple-400 hover:text-white hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />

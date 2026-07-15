@@ -209,8 +209,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
             {/* Image Setup Panel */}
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="text-[10px] font-mono text-gray-400 block mb-1">Theme / Modification Prompt</label>
+                <label htmlFor="img-prompt-input" className="text-[10px] font-mono text-gray-400 block mb-1">Theme / Modification Prompt</label>
                 <textarea
+                  id="img-prompt-input"
                   value={imgPrompt}
                   onChange={(e) => setImgPrompt(e.target.value)}
                   rows={2}
@@ -222,8 +223,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
               {/* Advanced sliders */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 block mb-0.5">Model Grade</span>
+                  <label htmlFor="img-model-select" className="text-[9px] font-mono text-gray-500 block mb-0.5">Model Grade</label>
                   <select
+                    id="img-model-select"
                     value={imgModel}
                     onChange={(e) => setImgModel(e.target.value as any)}
                     className="w-full bg-gray-950 border border-gray-900 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none"
@@ -233,8 +235,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                   </select>
                 </div>
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 block mb-0.5">Aspect Ratio</span>
+                  <label htmlFor="img-ratio-select" className="text-[9px] font-mono text-gray-500 block mb-0.5">Aspect Ratio</label>
                   <select
+                    id="img-ratio-select"
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
                     className="w-full bg-gray-950 border border-gray-900 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none"
@@ -245,8 +248,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                   </select>
                 </div>
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 block mb-0.5">Resolution Size</span>
+                  <label htmlFor="img-size-select" className="text-[9px] font-mono text-gray-500 block mb-0.5">Resolution Size</label>
                   <select
+                    id="img-size-select"
                     value={imageSize}
                     onChange={(e) => setImageSize(e.target.value)}
                     className="w-full bg-gray-950 border border-gray-900 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none"
@@ -262,7 +266,16 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
               {/* Background Edit upload box */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border border-dashed border-gray-900 hover:border-purple-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Click or press Enter to upload original photo"
+                className="border border-dashed border-gray-900 hover:border-purple-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all focus:outline-none focus:ring-1 focus:ring-purple-500/50"
               >
                 <input
                   type="file"
@@ -270,6 +283,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                   onChange={(e) => handleFileChange(e, "image")}
                   className="hidden"
                   accept="image/*"
+                  aria-label="Upload original photo"
                 />
                 {selectedFile ? (
                   <div className="flex items-center justify-between text-[10px]">
@@ -350,8 +364,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="text-[10px] font-mono text-gray-400 block mb-1">Visual Animation Scene</label>
+                <label htmlFor="vid-prompt-input" className="text-[10px] font-mono text-gray-400 block mb-1">Visual Animation Scene</label>
                 <textarea
+                  id="vid-prompt-input"
                   value={vidPrompt}
                   onChange={(e) => setVidPrompt(e.target.value)}
                   rows={2}
@@ -362,8 +377,9 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[9px] font-mono text-gray-500 block mb-0.5">Screen Ratio</span>
+                  <label htmlFor="vid-ratio-select" className="text-[9px] font-mono text-gray-500 block mb-0.5">Screen Ratio</label>
                   <select
+                    id="vid-ratio-select"
                     value={vidAspectRatio}
                     onChange={(e) => setVidAspectRatio(e.target.value)}
                     className="w-full bg-gray-950 border border-gray-900 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none"
@@ -383,7 +399,16 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
               {/* Source Photo animator */}
               <div
                 onClick={() => vidImgRef.current?.click()}
-                className="border border-dashed border-gray-900 hover:border-cyan-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    vidImgRef.current?.click();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Click or press Enter to upload starting photo for animation"
+                className="border border-dashed border-gray-900 hover:border-cyan-500/30 p-3 rounded-xl bg-gray-950/40 text-center cursor-pointer transition-all focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
               >
                 <input
                   type="file"
@@ -391,6 +416,7 @@ export default function PhotoBooth({ user }: PhotoBoothProps) {
                   onChange={(e) => handleFileChange(e, "video-ref")}
                   className="hidden"
                   accept="image/*"
+                  aria-label="Upload starting photo for animation"
                 />
                 {vidSourceImg ? (
                   <div className="flex gap-2 items-center justify-between text-[10px]">

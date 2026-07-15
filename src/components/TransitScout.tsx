@@ -79,8 +79,9 @@ export default function TransitScout() {
         </div>
 
         <div>
-          <label className="text-[10px] font-mono text-gray-500 block mb-1">Scout Search Query</label>
+          <label htmlFor="transit-scout-search" className="text-[10px] font-mono text-gray-500 block mb-1">Scout Search Query</label>
           <input
+            id="transit-scout-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
