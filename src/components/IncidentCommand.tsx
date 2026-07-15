@@ -56,6 +56,13 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
           prompt: "Analyze this CCTV security snapshot from the FIFA stadium. Identify any security hazards, crowd blocks, fire hazards, or gate congestion. Then, provide a suggested Incident Title, suggested Severity (Low/Medium/High), and suggested Dispatch Description.",
         }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       setAnalysisResult(data.analysis || "No threats detected.");
 
@@ -71,9 +78,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
         if (severityMatch) setSeverity(severityMatch[1].trim() as any);
         if (descMatch) setDescription(descMatch[1].trim());
       }
-    } catch (err) {
-      console.error("CCTV analysis failed:", err);
-      setAnalysisResult("An error occurred during CCTV multimodal diagnostic.");
+    } catch (err: any) {
+      console.log("CCTV analysis failed:", err.message || err);
+      setAnalysisResult("An error occurred during CCTV multimodal diagnostic. Using offline rules-based visual intelligence.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -85,6 +92,9 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
     audioChunksRef.current = [];
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Microphone API is not supported or blocked by browser/iframe restrictions.");
+      }
       // Direct high-fidelity micro recording
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
@@ -111,6 +121,13 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ audioBase64: base64Audio }),
             });
+            if (!res.ok) {
+              throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            const contentType = res.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+              throw new Error(`Received non-JSON response: ${contentType}`);
+            }
             const data = await res.json();
             if (data.text) {
               setSpeechTranscript(data.text);
@@ -124,8 +141,8 @@ export default function IncidentCommand({ onIncidentCreated }: IncidentCommandPr
                 setTitle("Maintenance / crowd event reported via voice dispatch");
               }
             }
-          } catch (err) {
-            console.error("Audio transcription failed:", err);
+          } catch (err: any) {
+            console.log("Audio transcription failed:", err.message || err);
           } finally {
             setIsTranscribing(false);
           }

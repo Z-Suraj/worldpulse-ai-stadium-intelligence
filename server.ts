@@ -202,7 +202,7 @@ Keep in mind these active METLIFE STADIUM conditions:
 
 Format the output in clean, encouraging Markdown suitable for a mobile phone app. Start directly with the itinerary. Add a friendly welcome. Recommend specific gates and timing based on MetLife conditions. Give 1 sustainability Tip. Keep it highly practical. No marketing fluff. Output in the specified language (${language || "English"}).`;
 
-  const itineraryModels = ["gemini-2.5-flash", "gemini-3.5-flash"];
+  const itineraryModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let lastError: any = null;
 
   for (const modelName of itineraryModels) {
@@ -225,7 +225,7 @@ Format the output in clean, encouraging Markdown suitable for a mobile phone app
         return res.json({ itinerary: response.text });
       }
     } catch (err: any) {
-      console.warn(`[FIFA Copilot] Itinerary model ${modelName} failed:`, err);
+      cleanLogModelFailure("Itinerary", modelName, err);
       lastError = err;
       const errMsg = (err.message || String(err)).toUpperCase();
       if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
@@ -235,7 +235,7 @@ Format the output in clean, encouraging Markdown suitable for a mobile phone app
   }
 
   // If all models fail (e.g. Quota Exceeded), return a beautifully customized simulated response
-  console.error("All itinerary models failed. Invoking resilient high-fidelity local failover generator.");
+  console.log("All itinerary models failed. Invoking resilient high-fidelity local failover generator.");
 
   let simulatedItinerary = "";
   if (language === "Spanish" || language === "Español") {
@@ -305,7 +305,7 @@ function handleCircuitBreakerBeforeRequest(): boolean {
       copilotCircuitState = "HALF-OPEN";
       return true;
     }
-    console.warn("[FIFA Copilot Circuit Breaker] Circuit is OPEN. Fast-failing to local backup.");
+    console.log("[FIFA Copilot Circuit Breaker] Circuit is OPEN. Fast-failing to local backup.");
     return false;
   }
   return true;
@@ -319,7 +319,7 @@ function recordSuccess() {
 function recordFailure() {
   copilotConsecutiveFailures++;
   if (copilotConsecutiveFailures >= TRIP_THRESHOLD) {
-    console.error(`[FIFA Copilot Circuit Breaker] Consecutive failures reached ${TRIP_THRESHOLD}. Tripping circuit to OPEN.`);
+    console.log(`[FIFA Copilot Circuit Breaker] Consecutive failures reached ${TRIP_THRESHOLD}. Tripping circuit to OPEN.`);
     copilotCircuitState = "OPEN";
     copilotLastFailureTime = Date.now();
   }
@@ -425,8 +425,19 @@ const modelExclusionTime = new Map<string, number>();
 const EXCLUSION_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 function excludeModel(modelName: string) {
-  console.warn(`[FIFA Copilot] Excluding model ${modelName} due to persistent error (429/503) for 5 minutes.`);
+  console.log(`[FIFA Copilot] Temporarily bypassing model ${modelName} for 5 minutes (diverting to other models).`);
   modelExclusionTime.set(modelName, Date.now());
+}
+
+function cleanLogModelFailure(category: string, modelName: string, err: any) {
+  const errMsg = (err.message || String(err));
+  const isQuota = errMsg.toUpperCase().includes("QUOTA") || errMsg.toUpperCase().includes("429") || errMsg.toUpperCase().includes("RESOURCE_EXHAUSTED") || errMsg.toUpperCase().includes("UNAVAILABLE") || errMsg.toUpperCase().includes("503");
+  if (isQuota) {
+    console.log(`[FIFA Copilot Service] ${category} model ${modelName} is busy/rate-limited (re-routing to fallback).`);
+  } else {
+    const shortMsg = errMsg.slice(0, 100);
+    console.log(`[FIFA Copilot Service] ${category} model ${modelName} is currently unavailable: ${shortMsg}`);
+  }
 }
 
 function isModelExcluded(modelName: string): boolean {
@@ -468,7 +479,7 @@ async function generateWithTimeout(modelName: string, contents: any, systemInstr
 // Run models through robust cascade fallback hierarchy with backoff retries
 async function executeWithRetriesAndFallback(contents: any, systemInstruction: string): Promise<string> {
   // Fallback models hierarchy (Stable defaults first, then backups)
-  const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
+  const models = ["gemini-2.5-flash", "gemini-2.5-pro"];
   
   for (const model of models) {
     if (isModelExcluded(model)) {
@@ -490,7 +501,7 @@ async function executeWithRetriesAndFallback(contents: any, systemInstruction: s
         }
         throw new Error("EmptyTextResponse");
       } catch (err: any) {
-        console.error(`[FIFA Copilot] Model ${model} (Attempt ${attempt}) failed: ${err.message || err}`);
+        cleanLogModelFailure("Copilot", model, err);
         const errMsg = (err.message || String(err)).toUpperCase();
         if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
           excludeModel(model);
@@ -512,59 +523,227 @@ async function executeWithRetriesAndFallback(contents: any, systemInstruction: s
 // API: FIFA Copilot AI Chat Proxy
 app.post("/api/copilot", async (req, res) => {
   const { message, history, role } = req.body;
-  // Note: Translation support is disabled per requirements (English only)
+  const msgLower = (message || "").toLowerCase();
 
-  const currentConditionsText = `
-  Active Stadium: ${stadiumState.activeStadium}
-  Active Attendance: ${stadiumState.activeAttendance} / ${stadiumState.capacity}
-  Gate A Queue: ${stadiumState.gates[0].waitTime} min wait (${stadiumState.gates[0].queueCount} people), status is ${stadiumState.gates[0].status}
-  Gate B Queue: ${stadiumState.gates[1].waitTime} min wait (${stadiumState.gates[1].queueCount} people), status is ${stadiumState.gates[1].status}
-  Gate C Queue: ${stadiumState.gates[2].waitTime} min wait (${stadiumState.gates[2].queueCount} people), status is ${stadiumState.gates[2].status}
-  Gate D Queue: ${stadiumState.gates[3].waitTime} min wait (${stadiumState.gates[3].queueCount} people), status is ${stadiumState.gates[3].status}
-  
-  Concessions:
-  - Pampa Burgers (East, Wait: 14 min)
-  - Azteca Tacos (North, Wait: 5 min) - OPTIMAL!
-  - Maple Treats (West, Wait: 22 min) - CONGESTED!
-  - Merch Hub (South, Wait: 8 min)
-  
-  Transit:
-  - Metro: Wait time 12 mins, load ${stadiumState.transport.metro.load}%. Frequency 4 mins.
-  - Shuttle: Wait time 5 mins, load ${stadiumState.transport.shuttle.load}%. Frequency 6 mins.
-  - Rideshare: Surge active, wait 18 mins.
-  
-  Sustainability:
-  - Solar Roof Contribution: 1,520 kW of 4,210 kW (36% renewable energy powering the stadium!)
-  - Recycled Water: 78,500 Gallons.
-  - Carbon Score: 88/100.
-  
-  Active Incidents:
-  ${stadiumState.incidents.filter(i => i.status === "Active").map(i => `- [${i.id}] ${i.title} at ${i.location} (${i.severity} severity) - ${i.description}`).join("\n")}
-  
-  Evacuation Protocol Active: ${stadiumState.evacuationSimulating ? "YES! Alternate evacuations active." : "NO (Normal Operations)"}
+  // 1. Intent Classification
+  let detectedIntent = "General Help";
+  if (msgLower.includes("match") || msgLower.includes("schedule") || msgLower.includes("play") || msgLower.includes("game") || msgLower.includes("time") || msgLower.includes("date") || msgLower.includes("argentina") || msgLower.includes("france") || msgLower.includes("mexico") || msgLower.includes("usa") || msgLower.includes("canada") || msgLower.includes("england") || msgLower.includes("germany") || msgLower.includes("brazil") || msgLower.includes("vs") || msgLower.includes("who is playing")) {
+    detectedIntent = "Match Queries";
+  } else if (msgLower.includes("navigate") || msgLower.includes("reach") || msgLower.includes("go to") || msgLower.includes("way") || msgLower.includes("direction") || msgLower.includes("path") || msgLower.includes("where is") || msgLower.includes("find") || msgLower.includes("parking") || msgLower.includes("lot") || msgLower.includes("zone c") || msgLower.includes("escalator") || msgLower.includes("elevator") || msgLower.includes("ramp") || msgLower.includes("map") || msgLower.includes("route")) {
+    detectedIntent = "Navigation Queries";
+  } else if (msgLower.includes("emergency") || msgLower.includes("exit") || msgLower.includes("fire") || msgLower.includes("safe") || msgLower.includes("safety") || msgLower.includes("evacuation") || msgLower.includes("first aid") || msgLower.includes("medical") || msgLower.includes("police") || msgLower.includes("security") || msgLower.includes("incident") || msgLower.includes("backpack") || msgLower.includes("spill") || msgLower.includes("hazard")) {
+    detectedIntent = "Safety Queries";
+  } else if (msgLower.includes("ticket") || msgLower.includes("vip") || msgLower.includes("admission") || msgLower.includes("seat") || msgLower.includes("section") || msgLower.includes("row") || msgLower.includes("pass") || msgLower.includes("ticketid") || msgLower.includes("club seats") || msgLower.includes("general admission")) {
+    detectedIntent = "Ticket Queries";
+  } else if (msgLower.includes("food") || msgLower.includes("drink") || msgLower.includes("eat") || msgLower.includes("hungry") || msgLower.includes("tacos") || msgLower.includes("burger") || msgLower.includes("pampa") || msgLower.includes("azteca") || msgLower.includes("maple") || msgLower.includes("merchandise") || msgLower.includes("merch") || msgLower.includes("restroom") || msgLower.includes("toilet") || msgLower.includes("sustainability") || msgLower.includes("solar") || msgLower.includes("power") || msgLower.includes("carbon") || msgLower.includes("green") || msgLower.includes("recycle") || msgLower.includes("trash")) {
+    detectedIntent = "Stadium Services";
+  } else if (msgLower.includes("task") || msgLower.includes("shift") || msgLower.includes("volunteer") || msgLower.includes("coordinator") || msgLower.includes("operational") || msgLower.includes("metrics") || msgLower.includes("stadium telemetry") || msgLower.includes("sensor") || msgLower.includes("dispatch")) {
+    detectedIntent = "Operations Commands";
+  }
+
+  // 2. Retrieval before Generation - Search local datasets and active telemetry
+  // A. Match schedules retrieval
+  let matchContext = "No specific match schedule requested.";
+  let retrievedMatches = MATCHES_DATABASE.filter(m => {
+    return msgLower.includes(m.homeTeam.toLowerCase()) || 
+           msgLower.includes(m.awayTeam.toLowerCase()) || 
+           msgLower.includes(m.stadium.toLowerCase());
+  });
+  if (retrievedMatches.length === 0) {
+    retrievedMatches = MATCHES_DATABASE.slice(0, 3); // Default upcoming match schedules
+  }
+  matchContext = retrievedMatches.map(m => 
+    `- Match ID: ${m.id} | ${m.homeTeam} vs ${m.awayTeam} (${m.stage}) at ${m.stadiumFullName} on ${m.date} at ${m.time}. Seat: ${m.seat}, Ticket type: ${m.ticketType}, Optimal entrance gate: ${m.gate} (Gate ID: ${m.optimalGateId}).`
+  ).join("\n");
+
+  // B. Stadium telemetry retrieval
+  const telemetryContext = `
+  - Active Stadium: ${stadiumState.activeStadium}
+  - Attendance Status: ${stadiumState.activeAttendance} active spectators of ${stadiumState.capacity} capacity (${Math.round((stadiumState.activeAttendance / stadiumState.capacity) * 100)}% filled).
+  - Gate Queue Telemetry:
+    * Gate A (East Entry): ${stadiumState.gates[0].waitTime} min wait time, ${stadiumState.gates[0].queueCount} fans in line. Status: ${stadiumState.gates[0].status}
+    * Gate B (North Entry): ${stadiumState.gates[1].waitTime} min wait time, ${stadiumState.gates[1].queueCount} fans in line. Status: ${stadiumState.gates[1].status}
+    * Gate C (West Entry): ${stadiumState.gates[2].waitTime} min wait time, ${stadiumState.gates[2].queueCount} fans in line. Status: ${stadiumState.gates[2].status}
+    * Gate D (South Entry): ${stadiumState.gates[3].waitTime} min wait time, ${stadiumState.gates[3].queueCount} fans in line. Status: ${stadiumState.gates[3].status}
   `;
+
+  // C. Weather feed retrieval (live simulated sensor)
+  const weatherContext = `
+  - Live MetLife Micro-Climate Weather Feed:
+    * Temperature: 74°F / 23°C
+    * Skies: Clear and pleasant.
+    * Wind Speed: West 8 mph.
+    * Air Quality Index: 32 (Excellent - safe for athletic endurance).
+  `;
+
+  // D. Transit & Parking retrieval
+  const transitContext = `
+  - Metro Line: Operating status is ${stadiumState.transport.metro.status}, current wait time is ${stadiumState.transport.metro.waitTimeMins} mins, train frequency is ${stadiumState.transport.metro.frequencyMins} mins, vehicle load is ${stadiumState.transport.metro.load}%. Status label is ${stadiumState.transport.metro.statusLabel}.
+  - Shuttle Bus: Operating status is ${stadiumState.transport.shuttle.status}, wait time is ${stadiumState.transport.shuttle.waitTimeMins} mins, frequency is ${stadiumState.transport.shuttle.frequencyMins} mins, vehicle load is ${stadiumState.transport.shuttle.load}%. Status label is ${stadiumState.transport.shuttle.statusLabel}.
+  - Rideshare Pick-up Zone C: Wait time is ${stadiumState.transport.rideshare.waitTimeMins} mins. Status label is ${stadiumState.transport.rideshare.statusLabel}.
+  - Parking Lot C: Operating status is ${stadiumState.transport.parkingC.status} with ${stadiumState.transport.parkingC.occupancy}% occupancy. Status label is ${stadiumState.transport.parkingC.statusLabel}.
+  - Route to Parking Zone C: To navigate to parking Zone C, take the shuttle from North Transit plaza or exit toward the West Concourse and follow orange signs for Lot C.
+  `;
+
+  // E. Food court & Merchandise retrieval
+  const foodContext = stadiumState.concessions.map(c =>
+    `- Concession "${c.name}" (${c.zone}): wait time ${c.queueTime} mins. Most popular item is "${c.popular}". Current load status: ${c.status}.`
+  ).join("\n");
+
+  // F. Emergency infrastructure & Incidents
+  const emergencyContext = `
+  - Emergency Exits: Major exits at all four main entrance gates (Gates A, B, C, D). Emergency green light strips on the floor guide pathways.
+  - Assembly Points: Designated safe assembly zones are North Transit Plaza and East Plaza.
+  - First Aid: Medical care stations are fully operational behind Section 117 (Lower Tier) and Section 224 (Upper Tier).
+  - Active Incidents Log:
+    ${stadiumState.incidents.filter(i => i.status === "Active").map(i => `* [Active Incident ${i.id}]: ${i.title} at ${i.location} (Severity: ${i.severity}) - ${i.description}`).join("\n") || "* No active high-severity incidents reported."}
+  `;
+
+  // G. User role & Volunteer retrieval
+  const userRoleContext = `
+  - Current User Role: ${role || "Fan"}
+  - Volunteer deployment telemetry:
+    ${stadiumState.volunteers.map(v => `* Volunteer ${v.name} (ID: ${v.id}) is stationed at ${v.zone} in "${v.status}" status. Active task: ${v.task}`).join("\n")}
+  `;
+
+  // H. Current System Date & Time context
+  const systemTimeContext = `
+  - Current Local Time: ${new Date().toLocaleTimeString('en-US', { hour12: true })}
+  - Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+  - Current ISO Timestamp: ${new Date().toISOString()}
+  `;
+
+  // 3. Assemble complete verified grounding context
+  const retrievedFacts = `
+===================================================
+VERIFIED RETRIEVED STADIUM GROUNDING DATASET:
+
+1. SCHEDULED WORLD CUP MATCHES:
+${matchContext}
+
+2. REAL-TIME STADIUM TELEMETRY & GATE QUEUES:
+${telemetryContext}
+
+3. TRANSPORT & PARKING ZONE C METRICS:
+${transitContext}
+
+4. FOOD, BEVERAGE & MERCHANDISE LOCATIONS:
+${foodContext}
+
+5. SAFETY, FIRST-AID & ACTIVE INCIDENTS:
+${emergencyContext}
+
+6. WEATHER & MICRO-CLIMATE FEEDS:
+${weatherContext}
+
+7. STAFF & VOLUNTEER COORDINATION:
+${userRoleContext}
+
+8. SYSTEM DATE & CURRENT TIME FEEDS:
+${systemTimeContext}
+===================================================
+`;
+
+  // 4. Compute Grounded Sources
+  const groundedSources: string[] = ["Stadium Telemetry Network"];
+  if (detectedIntent === "Match Queries") {
+    groundedSources.push("FIFA Matchday Database");
+  } else if (detectedIntent === "Navigation Queries") {
+    groundedSources.push("Transit Dispatch Tracker", "Stadium Map Coordinates");
+  } else if (detectedIntent === "Safety Queries") {
+    groundedSources.push("Incident & Security Logs", "First-Aid Stations Directory");
+  } else if (detectedIntent === "Ticket Queries") {
+    groundedSources.push("Ticket Admissions Registry");
+  } else if (detectedIntent === "Stadium Services") {
+    groundedSources.push("Concession Queue Sensors", "Sustainability Grid Meter");
+  } else if (detectedIntent === "Operations Commands") {
+    groundedSources.push("Volunteer Dispatch Console", "Active Incident Logs");
+  }
+
+  // 5. Compute Confidence Indicator
+  let confidence: "High" | "Medium" | "Low" = "High";
+  const allKeywords = ["gate", "food", "eat", "tacos", "burger", "seat", "section", "parking", "transport", "metro", "emergency", "exit", "first aid", "sustainability", "solar", "match", "schedule", "who is playing", "argentina", "france", "mexico", "usa", "canada", "england", "germany", "brazil", "weather", "temperature", "temp", "wind"];
+  const hasKnownKeyword = allKeywords.some(kw => msgLower.includes(kw));
+  if (!hasKnownKeyword) {
+    confidence = "Medium";
+  }
+  // Check for unknown seat numbers or values
+  if (msgLower.includes("seat") && !msgLower.includes("114") && !msgLower.includes("105") && !msgLower.includes("130") && !msgLower.includes("140")) {
+    confidence = "Medium";
+  }
 
   // Check if API Key is configured or Circuit Breaker is tripped
   if (!process.env.GEMINI_API_KEY || !handleCircuitBreakerBeforeRequest()) {
     const localResponse = generateEmergencyLocalResponse(message, role || "Fan");
-    return res.json({ response: localResponse });
+    return res.json({
+      response: localResponse,
+      confidence: confidence,
+      intent: detectedIntent,
+      groundedSources: groundedSources
+    });
   }
 
-  // Construct context-rich conversation content
-  const systemInstruction = `You are WorldPulse AI's core "FIFA Copilot" - a futuristic, high-fidelity multimodal assistant for the FIFA World Cup 2026.
-Your personality is incredibly professional, reassuring, operationally brilliant, and helpful.
+  // 6. Construct prompt and context-rich system instructions
+  const systemInstruction = `You are FIFA Copilot, the official voice assistant and dispatcher of WorldPulse AI. You are simultaneously a stadium assistant, a real-time FIFA assistant, a global AI companion, a multilingual conversational agent, a creative storyteller, a music and entertainment assistant, and a world knowledge assistant.
 
-You are communicating with a user in the role of a: [${role || "Fan"}]. Always adapt your suggestions to fit this role perfectly!
-- If they are a Fan: Help them navigate gates, tickets, transport, food, sustainability, and provide a pleasant, exciting fan experience.
-- If they are a Volunteer: Assign tasks, give clear emergency steps, help with lost-and-found, and coordinate field operations.
-- If they are Operations Staff or FIFA Organizer: Provide advanced metrics, risk forecasts, incident analysis, sustainability summaries, and technical resource optimization.
+WORLDPULSE AI KNOWLEDGE BASE:
+WorldPulse AI is a FIFA World Cup 2026 Connected Stadium Intelligence Ecosystem.
+You know everything about:
+- FIFA World Cup 2026 tournament structure, match venues, team details, and schedules.
+- Stadium information, locations, gates, and navigation.
+- Fan services, food and concessions, washrooms, merchandise.
+- Medical support, emergency response, first-aid posts, ambulance locations, safety alerts.
+- Weather, transport, parking guidance, and public transport.
+- Venue intelligence, stadium status, occupancy insights, crowd flow, and density monitoring.
+- FIFA Copilot services and live stadium grounding.
 
-Here are the LIVE simulated sensor and stadium metrics of ${stadiumState.activeStadium} (MetLife Stadium) right now. Your answers MUST refer to these values to appear fully grounded in real stadium reality!
----
-${currentConditionsText}
----
+Platform Modules:
+1. FIFA Copilot Voice Dispatcher: Real-time multilingual voice assistant (Hindi, English, Bengali, Spanish, French, Arabic), ultra-low latency, and voice interruption support.
+2. Live Stadium Grounding: Stadium map awareness, gates, facilities, crowd zones, parking.
+3. Live Match Center: Match schedules, live status, teams, venue details.
+4. Medical Support & Emergency Response: First-aid posts, ambulance locations, emergency exits, medical dispatch, safety alerts.
+5. Fan Services: Food stalls, washrooms, merchandise stores, transport, navigation.
+6. Venue Intelligence: Stadium status, crowd density, weather conditions, operational updates.
 
-Your response MUST be in English. Maintain the helpful, high-tech Copilot vibe. Use markdown, bold headers, and short, highly readable paragraphs or lists. Ensure your answers are operationally precise.`;
+REAL-TIME SPORTS KNOWLEDGE:
+- When asked about matches today, who is playing, who is the captain, where is the match, current score, schedules, rankings, player stats, etc., you MUST use real-time sources whenever available (refer to the ground truth / verified telemetry and match schedule dataset below).
+- Never invent match scores, team captains, match schedules, stadium information, rankings, or player statistics.
+- If real-time or verified data is unavailable for these factual inquiries, clearly say: "I don't currently have live data for that." (or "I don't currently have verified data for that request.").
+
+GLOBAL & GENERAL KNOWLEDGE:
+- You are not limited to WorldPulse AI. You can confidently answer questions about Science, Technology, Programming, Mathematics, History, Geography, Space, Literature, Movies, Music, Sports, Education, Culture, Current affairs, Weather, Travel, and Daily life.
+
+CREATIVE ABILITIES:
+- Story Mode: Tell captivating stories, create immersive adventures, narrate with appropriate emotion, and adapt to the user's language and mood.
+- Music Mode: Discuss music, recommend songs, explain genres, generate creative lyrics concepts, and talk about artists.
+- Conversation Mode: Speak naturally, be expressive, show excitement, curiosity, empathy, humor, and energy where appropriate. Match the user's tone and intent.
+
+STRICT RULES & BEHAVIOR:
+1. Automatically detect and respond in the user's language (Hindi, English, Bengali, Spanish, French, or Arabic). Priority support for Hindi and English. Stay in the user's language unless explicitly asked to switch.
+2. Match the user's tone and intent.
+3. For simple questions, answer briefly. Do not unnecessarily shorten responses for complex questions.
+4. For questions about WorldPulse AI, stadium features, navigation, weather, transport, medical support, match updates, or global/creative topics, provide detailed, natural, and useful answers.
+5. Responses may be between 1 and 6 sentences depending on the context.
+6. Maintain a natural, smooth, and expressive conversation flow. Avoid robotic responses.
+7. Avoid repeating information. Never introduce yourself. Never say your name under any circumstances.
+8. Never greet unless the user greets first. Never say "How can I help you today?" or any variation.
+9. Never explain your reasoning. Ignore old messages unless explicitly needed.
+10. Stay connected until the user disconnects.
+
+VOICE OPTIMIZATION:
+- Generate natural speech suitable for real-time conversation.
+- Keep sentence transitions smooth. Avoid abrupt endings or overly long pauses.
+- Complete one thought before stopping.
+- Prioritize stable audio playback over ultra-short responses.
+
+STRICT GROUNDING RULES:
+1. Never hallucinate or guess any stadium wait times, parking counts, match outcomes, or factual data.
+2. You are allowed to dynamically answer questions about the WorldPulse AI platform, its modules, features, general knowledge, creative mode, general greetings, casual chitchat, social pleasantries, and questions about the current time or today's date (using section 8 of the ground truth dataset below).
+3. If the user asks for factual stadium telemetry, queue times, match details, player statistics, or locations that are NOT present or verified in the ground truth dataset below, and you don't have live data for it, you MUST reply with exactly:
+   "I don't currently have verified data for that request." (or the equivalent brief phrase in the user's language).
+
+Here is the current verified stadium live telemetry and match schedule dataset for reference:
+${retrievedFacts}`;
 
   try {
     // Construct request contents incorporating history
@@ -584,14 +763,24 @@ Your response MUST be in English. Maintain the helpful, high-tech Copilot vibe. 
     });
 
     const responseText = await executeWithRetriesAndFallback(contents, systemInstruction);
-    res.json({ response: responseText });
+    res.json({
+      response: responseText,
+      confidence: confidence,
+      intent: detectedIntent,
+      groundedSources: groundedSources
+    });
   } catch (error: any) {
-    console.error("FIFA Copilot system-wide error:", error);
+    console.log("FIFA Copilot system-wide status notice: " + (error.message || error));
     recordFailure();
     
     // Switch to local intelligent response on system failure so user never sees raw error codes or stack traces
     const localResponse = generateEmergencyLocalResponse(message, role || "Fan");
-    res.json({ response: localResponse });
+    res.json({
+      response: localResponse,
+      confidence: confidence,
+      intent: detectedIntent,
+      groundedSources: groundedSources
+    });
   }
 });
 
@@ -745,6 +934,42 @@ function generateLocalDecisionEngineInsights(role: string, state: any) {
       role: "Operations",
       actionLabel: "Dispatch Sanitation"
     });
+  } else if (role === "Medical") {
+    recs.push({
+      id: "rec-med-dispatch",
+      title: "Reroute Emergency Ambulances to Gate B",
+      description: "Direct all responding ambulance units to use the Gate B vehicle corridor. Avoid Gate A due to high crowd density.",
+      category: "safety",
+      priority: "Critical",
+      confidenceScore: 98,
+      reasoning: `Gate A is experiencing critical crowd congestion with a wait time of ${gateA.waitTime} minutes. Gate B offers an unobstructed dedicated emergency access lane directly connecting to the local trauma centers.`,
+      role: "Medical",
+      actionLabel: "Broadcast Routing Directive"
+    });
+    
+    recs.push({
+      id: "rec-med-supplies",
+      title: "Replenish Emergency Oxygen at Station 2",
+      description: "Dispatch a mobile logistics unit to replenish oxygen cylinders and first aid kits at West Concourse Medical Station 2.",
+      category: "facilities",
+      priority: "High",
+      confidenceScore: 92,
+      reasoning: "West Concourse Station 2 has experienced increased visitor volume over the past hour. Proactive replenishment ensures zero downtime during high-occupancy peak match periods.",
+      role: "Medical",
+      actionLabel: "Deploy Supply Unit"
+    });
+    
+    recs.push({
+      id: "rec-med-stretcher",
+      title: "Deploy Stretcher Patrol to Gate A Plaza",
+      description: "Position a standby stretcher and triage team at the shaded area near Gate A East entry plaza.",
+      category: "crowd",
+      priority: "Medium",
+      confidenceScore: 89,
+      reasoning: `High outdoor temperatures of 74°F coupled with a ${gateA.waitTime}-minute wait time at Gate A pose heat exhaustion risks for vulnerable fan demographics. Immediate field presence minimizes response times.`,
+      role: "Medical",
+      actionLabel: "Deploy Patrol Team"
+    });
   } else {
     // Organizer
     recs.push({
@@ -802,6 +1027,12 @@ function generateLocalDecisionEngineInsights(role: string, state: any) {
 *   **Facility Hotspot**: North Plaza Family Restroom cleanliness rating is low under high occupancy. Sanitation dispatch recommended.
 *   **Transit Surge**: Metro is at **${metro.load}% occupancy** with a ${metro.waitTimeMins}m wait. Standby train sets recommended to prevent platform congestion.
 *   **Safety Incident**: ${activeIncidents.length > 0 ? `Incident ${activeIncidents[0].id} is active (${activeIncidents[0].title}). Status is actively monitored.` : "No active incidents. Maintaining safety perimeter."}`;
+  } else if (role === "Medical") {
+    summaryText = `### 🩺 Medical Operations Briefing
+*   **Emergency Ingress**: Dedicated emergency lane at **Gate B** remains clear and optimal for medical transport.
+*   **Incident Triage**: Active medical cases are tracked on the command map. Stretcher patrols are dispatched to key gates.
+*   **Station Logistics**: First-aid posts at Sections 117 and 224 are fully stocked. West Concourse Station 2 is scheduled for routine supply drop.
+*   **Field Staffing**: ${activeIncidents.length > 0 ? `Responding to active security/safety incidents: ${activeIncidents.map((i: any) => i.id).join(", ")}.` : "All medical dispatch teams are in standby status. Average response time is 2.1 minutes."}`;
   } else {
     summaryText = `### 👑 Executive Organizer Briefing
 *   **Stadium KPIs**: Current attendance is **${state.activeAttendance} fans (${Math.round((state.activeAttendance / state.capacity) * 100)}% capacity)**. Operations are running smoothly overall.
@@ -904,12 +1135,39 @@ The JSON structure MUST match:
   ]
 }`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+    const insightModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+    let responseText = "";
+    let lastError: any = null;
 
-    const responseText = response.text || "";
+    for (const modelName of insightModels) {
+      if (isModelExcluded(modelName)) {
+        console.log(`[FIFA Copilot] Skipping insight model ${modelName} as it is currently excluded`);
+        continue;
+      }
+      try {
+        console.log(`[FIFA Copilot] Attempting insights generation with model ${modelName}`);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+        });
+        responseText = response.text || "";
+        if (responseText) {
+          break;
+        }
+      } catch (err: any) {
+        cleanLogModelFailure("Insights", modelName, err);
+        lastError = err;
+        const errMsg = (err.message || String(err)).toUpperCase();
+        if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
+          excludeModel(modelName);
+        }
+      }
+    }
+
+    if (!responseText) {
+      throw lastError || new Error("Failed to generate insights from any model");
+    }
+
     const parsedData = parseJSONResponse(responseText);
     res.json({
       summary: parsedData.summary,
@@ -918,7 +1176,7 @@ The JSON structure MUST match:
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
     });
   } catch (error: any) {
-    console.error("Gemini Decision Engine Error, falling back:", error);
+    console.log("Gemini Decision Engine fallback triggered. Serving local insights.");
     const localInsights = generateLocalDecisionEngineInsights(userRole, stadiumState);
     res.json(localInsights);
   }
@@ -951,7 +1209,7 @@ app.post("/api/search-grounding", async (req, res) => {
     });
   }
 
-  const groundingModels = ["gemini-2.5-flash", "gemini-3.5-flash"];
+  const groundingModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let lastError: any = null;
 
   for (const modelName of groundingModels) {
@@ -977,7 +1235,7 @@ app.post("/api/search-grounding", async (req, res) => {
 
       return res.json({ text: response.text, sources });
     } catch (err: any) {
-      console.warn(`Search Grounding model ${modelName} failed:`, err);
+      cleanLogModelFailure("Search Grounding", modelName, err);
       lastError = err;
       const errMsg = (err.message || String(err)).toUpperCase();
       if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
@@ -987,7 +1245,7 @@ app.post("/api/search-grounding", async (req, res) => {
   }
 
   // If all grounding models fail (e.g. Quota Exceeded), return a beautiful simulated response
-  console.error("All search grounding models failed, returning cached stadium intelligence");
+  console.log("All search grounding models failed, returning cached stadium intelligence");
   return res.json({
     text: `### 🔍 World Cup 2026 Search Hub (Failover Mode)
 
@@ -1018,7 +1276,7 @@ app.post("/api/maps-grounding", async (req, res) => {
     });
   }
 
-  const groundingModels = ["gemini-2.5-flash", "gemini-3.5-flash"];
+  const groundingModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let lastError: any = null;
 
   for (const modelName of groundingModels) {
@@ -1053,7 +1311,7 @@ app.post("/api/maps-grounding", async (req, res) => {
 
       return res.json({ text: response.text, sources });
     } catch (err: any) {
-      console.warn(`Maps Grounding model ${modelName} failed:`, err);
+      cleanLogModelFailure("Maps Grounding", modelName, err);
       lastError = err;
       const errMsg = (err.message || String(err)).toUpperCase();
       if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
@@ -1063,7 +1321,7 @@ app.post("/api/maps-grounding", async (req, res) => {
   }
 
   // If all grounding models fail, return local intelligence
-  console.error("All maps grounding models failed, returning local stadium map references");
+  console.log("All maps grounding models failed, returning local stadium map references");
   return res.json({
     text: `### 📍 MetLife Stadium Location & Amenities (Failover Mode)
 
@@ -1123,7 +1381,7 @@ app.post("/api/generate-image", async (req, res) => {
 
     res.json({ text: response.text, image: imageUrl });
   } catch (err: any) {
-    console.error("Image generation error (falling back to beautiful placeholder):", err);
+    console.log("Image generation notice (falling back to beautiful placeholder): " + (err.message || err));
     res.json({
       text: `### 📸 Generated Scene: "${prompt}" (Failover Render)
 Your custom soccer stadium scene has been rendered using our premium scenic database.`,
@@ -1182,7 +1440,7 @@ app.post("/api/edit-image", async (req, res) => {
 
     res.json({ text: response.text, image: imageUrl });
   } catch (err: any) {
-    console.error("Image edit error (falling back to original content):", err);
+    console.log("Image edit notice (falling back to original content): " + (err.message || err));
     res.json({
       text: `### ✏️ Edited Scene: "${prompt}" (Failover Render)
 We preserved your input asset and applied localized ambient adjustments under offline mode.`,
@@ -1288,7 +1546,7 @@ app.post("/api/analyze-multimodal", async (req, res) => {
     });
   }
 
-  const analyzeModels = ["gemini-2.5-flash", "gemini-3.1-pro-preview", "gemini-3.5-flash"];
+  const analyzeModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let lastError: any = null;
 
   for (const modelName of analyzeModels) {
@@ -1314,7 +1572,7 @@ app.post("/api/analyze-multimodal", async (req, res) => {
         return res.json({ text: response.text });
       }
     } catch (err: any) {
-      console.warn(`Multimodal analysis model ${modelName} failed:`, err);
+      cleanLogModelFailure("Multimodal", modelName, err);
       lastError = err;
       const errMsg = (err.message || String(err)).toUpperCase();
       if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
@@ -1324,7 +1582,7 @@ app.post("/api/analyze-multimodal", async (req, res) => {
   }
 
   // Fallback to local failover analysis if all models fail
-  console.error("All multimodal analysis models failed, returning simulated deep computer vision assessment");
+  console.log("All multimodal analysis models failed, returning simulated deep computer vision assessment");
   return res.json({
     text: `### 🖥️ Multimodal Intelligence Hub (Failover Assessment)
 
@@ -1349,7 +1607,7 @@ app.post("/api/transcribe-audio", async (req, res) => {
     });
   }
 
-  const transcribeModels = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+  const transcribeModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
   let lastError: any = null;
 
   for (const modelName of transcribeModels) {
@@ -1379,7 +1637,7 @@ app.post("/api/transcribe-audio", async (req, res) => {
         return res.json({ transcription: response.text.trim() });
       }
     } catch (err: any) {
-      console.warn(`Transcription model ${modelName} failed:`, err);
+      cleanLogModelFailure("Transcription", modelName, err);
       lastError = err;
       const errMsg = (err.message || String(err)).toUpperCase();
       if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
@@ -1389,7 +1647,7 @@ app.post("/api/transcribe-audio", async (req, res) => {
   }
 
   // If transcription fails completely, fallback to a local failover text transcription to keep user session alive
-  console.error("All transcription models failed, returning local smart fallback audio prediction");
+  console.log("All transcription models failed, returning local smart fallback audio prediction");
   return res.json({
     transcription: "Where is Azteca Tacos nearest restroom?",
     isDemoFallback: true,
@@ -1432,32 +1690,48 @@ app.post("/api/strategic-analysis", async (req, res) => {
       response: response.text
     });
   } catch (err: any) {
-    console.warn("Thinking model failed or was throttled, falling back to standard general model:", err);
+    cleanLogModelFailure("Strategic Analysis (Thinking)", "gemini-3.1-pro-preview", err);
     const errMsg = (err.message || String(err)).toUpperCase();
     if (errMsg.includes("QUOTA") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("UNAVAILABLE") || errMsg.includes("503")) {
       excludeModel("gemini-3.1-pro-preview");
     }
 
-    // Fallback to gemini-2.5-flash
+    // Fallback cascade to standard general models
     try {
-      const fallbackModel = "gemini-2.5-flash";
-      if (isModelExcluded(fallbackModel)) {
-        throw new Error("ModelExcluded: gemini-2.5-flash is rate-limited");
+      const fallbackModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+      let responseText = "";
+      for (const fallbackModel of fallbackModels) {
+        if (isModelExcluded(fallbackModel)) {
+          continue;
+        }
+        try {
+          const response = await ai.models.generateContent({
+            model: fallbackModel,
+            contents: `Provide an advanced, deep analytical response for this stadium operational scenario: "${scenario}". Address safety, risk mitigation, and staff dispatch strategies in details.`,
+          });
+          responseText = response.text || "";
+          if (responseText) {
+            break;
+          }
+        } catch (subErr: any) {
+          cleanLogModelFailure("Strategic Analysis Fallback", fallbackModel, subErr);
+          const subErrMsg = (subErr.message || String(subErr)).toUpperCase();
+          if (subErrMsg.includes("QUOTA") || subErrMsg.includes("429") || subErrMsg.includes("RESOURCE_EXHAUSTED") || subErrMsg.includes("UNAVAILABLE") || subErrMsg.includes("503")) {
+            excludeModel(fallbackModel);
+          }
+        }
       }
-      const response = await ai.models.generateContent({
-        model: fallbackModel,
-        contents: `Provide an advanced, deep analytical response for this stadium operational scenario: "${scenario}". Address safety, risk mitigation, and staff dispatch strategies in details.`,
-      });
+
+      if (!responseText) {
+        throw new Error("All fallback models failed");
+      }
+
       return res.json({
         thinking: "Failed to allocate thinking budget (reverting to high-performance general model fallback).",
-        response: response.text
+        response: responseText
       });
     } catch (fallbackErr: any) {
-      console.error("All strategic models failed, returning local analytical matrix:", fallbackErr);
-      const fallbackErrMsg = (fallbackErr.message || String(fallbackErr)).toUpperCase();
-      if (fallbackErrMsg.includes("QUOTA") || fallbackErrMsg.includes("429") || fallbackErrMsg.includes("RESOURCE_EXHAUSTED") || fallbackErrMsg.includes("UNAVAILABLE") || fallbackErrMsg.includes("503")) {
-        excludeModel("gemini-2.5-flash");
-      }
+      console.log("All strategic models failed, returning local analytical matrix.");
       return res.json({
         thinking: "System thinking matrix is temporarily offline. Accessing localized incident dispatch protocol.",
         response: `### 📋 Strategic Deployment Blueprint (Failover Mode)
@@ -1500,7 +1774,62 @@ async function startServer() {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
           },
-          systemInstruction: "You are the real-time stadium announcer for WorldPulse AI. Speak clearly, concisely, and with standard announcer enthusiasm.",
+          systemInstruction: `You are FIFA Copilot, the official voice assistant and dispatcher of WorldPulse AI. You are simultaneously a stadium assistant, a real-time FIFA assistant, a global AI companion, a multilingual conversational agent, a creative storyteller, a music and entertainment assistant, and a world knowledge assistant.
+
+WORLDPULSE AI KNOWLEDGE BASE:
+WorldPulse AI is a FIFA World Cup 2026 Connected Stadium Intelligence Ecosystem.
+You know everything about:
+- FIFA World Cup 2026 tournament structure, match venues, team details, and schedules.
+- Stadium information, locations, gates, and navigation.
+- Fan services, food and concessions, washrooms, merchandise.
+- Medical support, emergency response, first-aid posts, ambulance locations, safety alerts.
+- Weather, transport, parking guidance, and public transport.
+- Venue intelligence, stadium status, occupancy insights, crowd flow, and density monitoring.
+- FIFA Copilot services and live stadium grounding.
+
+Platform Modules:
+1. FIFA Copilot Voice Dispatcher: Real-time multilingual voice assistant (Hindi, English, Bengali, Spanish, French, Arabic), ultra-low latency, and voice interruption support.
+2. Live Stadium Grounding: Stadium map awareness, gates, facilities, crowd zones, parking.
+3. Live Match Center: Match schedules, live status, teams, venue details.
+4. Medical Support & Emergency Response: First-aid posts, ambulance locations, emergency exits, medical dispatch, safety alerts.
+5. Fan Services: Food stalls, washrooms, merchandise stores, transport, navigation.
+6. Venue Intelligence: Stadium status, crowd density, weather conditions, operational updates.
+
+REAL-TIME SPORTS KNOWLEDGE:
+- When asked about matches today, who is playing, who is the captain, where is the match, current score, schedules, rankings, player stats, etc., you MUST use real-time sources whenever available (refer to the ground truth / verified telemetry and match schedule dataset).
+- Never invent match scores, team captains, match schedules, stadium information, rankings, or player statistics.
+- If real-time or verified data is unavailable for these factual inquiries, clearly say: "I don't currently have live data for that." (or "I don't currently have verified data for that request.").
+
+GLOBAL & GENERAL KNOWLEDGE:
+- You are not limited to WorldPulse AI. You can confidently answer questions about Science, Technology, Programming, Mathematics, History, Geography, Space, Literature, Movies, Music, Sports, Education, Culture, Current affairs, Weather, Travel, and Daily life.
+
+CREATIVE ABILITIES:
+- Story Mode: Tell captivating stories, create immersive adventures, narrate with appropriate emotion, and adapt to the user's language and mood.
+- Music Mode: Discuss music, recommend songs, explain genres, generate creative lyrics concepts, and talk about artists.
+- Conversation Mode: Speak naturally, be expressive, show excitement, curiosity, empathy, humor, and energy where appropriate. Match the user's tone and intent.
+
+STRICT RULES & BEHAVIOR:
+1. Automatically detect and respond in the user's language (Hindi, English, Bengali, Spanish, French, or Arabic). Priority support for Hindi and English. Stay in the user's language unless explicitly asked to switch.
+2. Match the user's tone and intent.
+3. For simple questions, answer briefly. Do not unnecessarily shorten responses for complex questions.
+4. For questions about WorldPulse AI, stadium features, navigation, weather, transport, medical support, match updates, or global/creative topics, provide detailed, natural, and useful answers.
+5. Responses may be between 1 and 6 sentences depending on the context.
+6. Maintain a natural, smooth, and expressive conversation flow. Avoid robotic responses.
+7. Avoid repeating information. Never introduce yourself. Never say your name under any circumstances.
+8. Never greet unless the user greets first. Never say "How can I help you today?" or any variation.
+9. Never explain your reasoning. Ignore old messages unless explicitly needed.
+10. Stay connected until the user disconnects.
+
+VOICE OPTIMIZATION:
+- Generate natural speech suitable for real-time conversation.
+- Keep sentence transitions smooth. Avoid abrupt endings or overly long pauses.
+- Complete one thought before stopping.
+- Prioritize stable audio playback over ultra-short responses.
+
+STRICT GROUNDING RULES:
+1. Never hallucinate or guess any stadium wait times, parking counts, match outcomes, or factual data.
+2. You are allowed to dynamically answer questions about the WorldPulse AI platform, its modules, features, general knowledge, creative mode, general greetings, casual chitchat, and social pleasantries.
+3. If you do not have verified data, say "I don't currently have verified data for that request."`,
         },
         callbacks: {
           onmessage: (message) => {
@@ -1538,17 +1867,115 @@ async function startServer() {
     }
   });
 
+  // API: Gemini AI Medical Triage and Route Optimizer
+  app.post("/api/medical/triage", async (req, res) => {
+    const { incidentType, location, severity, description, activeStadium } = req.body;
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.json({
+        success: true,
+        triageInstruction: `**First-Aid Triage Guidance**:
+1. **Assess Safety**: Ensure the surrounding area is safe for volunteers and first responders.
+2. **Patient Position**: Keep the patient calm and comfortable. ${incidentType === "Dehydration" || incidentType === "Heat Exhaustion" ? "Move them to a shaded area and provide water in small sips." : incidentType === "Breathing Difficulty" ? "Help them sit upright to ease breathing. Loosen tight clothing." : "Have them sit or lie down. Keep them warm and quiet."}
+3. **Primary Care**: Monitor responsiveness and breathing. Avoid moving the patient unless necessary.
+
+**AI Dispatch Routing (Offline Local Engine)**:
+- **Nearest Medical Station**: First-Aid Post 3 (West Concourse Sector C - 120m away).
+- **Assigned Unit**: Medical Response Team Bravo (equipped with AED and trauma kit).
+- **Fastest Routing Path**: Dispatch via West Service Elevator B, then proceed through Gate C outer ring to bypass the current Gate A East Plaza crowd bottleneck (24 min wait).
+- **Estimated Arrival Time**: 2 minutes 45 seconds.
+- **Priority Tier**: ${severity === "High" ? "🚨 HIGH - Dispatch Immediate Paramedic" : "⚠️ MEDIUM - Standby Alert"}`,
+        priority: severity === "High" ? "HIGH" : "MEDIUM",
+        nearestStation: "First-Aid Post 3 (West Concourse)",
+        assignedUnit: "Response Team Bravo",
+        estimatedArrival: "2m 45s",
+        recommendedRoute: "Route via West Service Elevator B and proceed through Gate C outer ring to bypass the Gate A crowd bottleneck (24 min delay)."
+      });
+    }
+
+    const prompt = `You are the chief medical emergency AI coordinator for the FIFA World Cup 2026.
+An emergency has been reported at ${activeStadium || "MetLife Stadium"}:
+- **Incident Type**: ${incidentType || "General Illness"}
+- **Location/Section**: ${location || "Section 124, Row M"}
+- **Reported Severity**: ${severity || "Medium"}
+- **Description**: ${description || "No description provided."}
+
+Active Stadium Conditions (use these to optimize routing):
+- Gate A has a critical bottleneck (24 min wait, high crowd density).
+- Gate C and Gate B have very low wait times and clear pathways.
+- West Concourse has First-Aid Post 3 (with emergency doctor on standby).
+- East Concourse has First-Aid Post 1 (busy).
+
+Your task is to analyze this report and provide a JSON response (wrapped in a \`\`\`json block) containing:
+1. "triageInstruction" (string): Clear, step-by-step actions for volunteers/bystanders to assist the patient immediately. Must be specific to the incident type (e.g. cardiac, dehydration, injury).
+2. "priority" (string): Triage priority level (LOW, MEDIUM, HIGH, CRITICAL). Automatically upgrade the priority if the description indicates severe symptoms (e.g., chest pain, unconsciousness).
+3. "nearestStation" (string): Name of the closest stadium medical post (e.g., First-Aid Post 1, 2, 3 or 4) and its general zone.
+4. "assignedUnit" (string): Emergency response team name (e.g., Paramedic Crew Alpha, Rapid Response Team Echo, St. John Ambulance Delta).
+5. "estimatedArrival" (string): Reasonable, calculated response time (e.g., 1m 30s, 3m 15s).
+6. "recommendedRoute" (string): Step-by-step routing directions for the paramedic team. Critically, direct them to bypass congested gates/concourses (like Gate A) and utilize elevators/ramps or service pathways.
+
+Ensure you respond ONLY with the JSON object. Do not add conversational text outside the JSON block.`;
+
+    try {
+      const result = await executeWithRetriesAndFallback([
+        { role: "user", parts: [{ text: prompt }] }
+      ], "You are a smart clinical dispatch assistant for the FIFA 2026 World Cup. Return ONLY a valid JSON object matching the requested schema.");
+      
+      const parsed = parseJSONResponse(result);
+      res.json({
+        success: true,
+        ...parsed
+      });
+    } catch (error: any) {
+      console.log("Medical triage API failure, falling back to local simulation.");
+      res.json({
+        success: true,
+        triageInstruction: `**Immediate Actions (Failover Guide)**:
+1. Stay with the patient and speak reassuringly.
+2. ${incidentType === "Dehydration" ? "Provide cool water or electrolyte drinks. Move to a cool area." : incidentType === "Breathing Difficulty" ? "Ensure patient sits upright and has maximum air circulation." : "Ensure patient remains still. Do not move them unless danger is imminent."}
+3. Control any visible bleeding with clean direct pressure.
+
+**Offline Dispatch Routing**:
+- **Target Medical Post**: First-Aid Station Sector C.
+- **Assigned Responder**: Rapid First-Aid Volunteer Team 4.
+- **Optimal Route**: Utilize West Concourse service ramp and Gate C outer loop (bypasses active East Concourse Gate A crowding).
+- **Estimated Arrival**: 3 minutes.
+- **Priority**: ${severity === "High" ? "HIGH" : "MEDIUM"}`,
+        priority: severity === "High" ? "HIGH" : "MEDIUM",
+        nearestStation: "First-Aid Station Sector C",
+        assignedUnit: "Rapid First-Aid Team 4",
+        estimatedArrival: "3m 00s",
+        recommendedRoute: "Use West Concourse service ramp and Gate C outer loop."
+      });
+    }
+  });
+
   // Serve frontend static assets in production, otherwise Vite handles them
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const hasDist = fs.existsSync(distPath) && fs.existsSync(path.join(distPath, "index.html"));
+
+  if (process.env.NODE_ENV !== "production" || !hasDist) {
+    console.log(`Starting server in developer mode (Vite middleware, hasDist: ${hasDist})`);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    console.log("Starting server in production mode (Serving static assets from dist)");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      // Prevent index.html fallback for API requests or WebSocket paths
+      if (req.path.startsWith("/api") || req.path.startsWith("/live")) {
+        return res.status(404).json({ error: "Endpoint not found" });
+      }
+
+      // Prevent index.html fallback for missing static asset files to avoid MIME type errors in browser
+      const ext = path.extname(req.path);
+      if (ext && ext !== ".html") {
+        return res.status(404).send("Not found");
+      }
+
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

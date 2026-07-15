@@ -3,36 +3,12 @@ import { ChatMessage, UserRole } from "../types";
 import {
   Send,
   Mic,
-  Languages,
   Sparkles,
   Bot,
   User,
-  Volume2,
   Trash2,
-  CheckCircle,
-  RefreshCw,
-  AlertTriangle,
-  Zap,
-  CheckCircle2,
-  Info,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-
-interface Recommendation {
-  id: string;
-  title: string;
-  description: string;
-  category: "crowd" | "transit" | "safety" | "weather" | "facilities" | "power";
-  priority: "Low" | "Medium" | "High" | "Critical";
-  confidenceScore: number;
-  reasoning: string;
-  role: string;
-  actionLabel: string;
-}
 
 interface CopilotProps {
   activeRole: UserRole;
@@ -41,6 +17,82 @@ interface CopilotProps {
   stadiumState: any;
 }
 
+// Robust language identifier for multilingual speech transcript grounding
+const detectLanguage = (text: string): string => {
+  if (!text) return "en-US";
+  
+  // Devanagari script for Hindi
+  if (/[\u0900-\u097F]/.test(text)) {
+    return "hi-IN";
+  }
+  
+  // Bengali script
+  if (/[\u0980-\u09FF]/.test(text)) {
+    return "bn-IN";
+  }
+  
+  // Arabic script
+  if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text)) {
+    return "ar-SA";
+  }
+
+  const lower = text.toLowerCase();
+
+  // Transliterated / Phonetic Hindi
+  const hindiWords = [
+    "namaste", "kaise", "bhai", "shukriya", "stadium", "ticket", "gate", "kya", "hein", "dhanyawad", "aap", "tum", "mera", "mujhe", "batao", "kahan"
+  ];
+  const containsHindi = hindiWords.some(w => {
+    const regex = new RegExp(`\\b${w}\\b`, "i");
+    return regex.test(lower);
+  });
+  if (containsHindi) return "hi-IN";
+
+  // Transliterated / Phonetic Bengali
+  const bengaliWords = [
+    "namaskar", "bhalo", "ami", "tumi", "kemon", "achen", "shob", "kobe", "dhanyabad"
+  ];
+  const containsBengali = bengaliWords.some(w => {
+    const regex = new RegExp(`\\b${w}\\b`, "i");
+    return regex.test(lower);
+  });
+  if (containsBengali) return "bn-IN";
+
+  // Transliterated Arabic
+  const arabicWords = [
+    "marhaban", "ahlan", "shukran", "kaifa", "mubarah", "bawaaba", "shukran", "habibi"
+  ];
+  const containsArabic = arabicWords.some(w => {
+    const regex = new RegExp(`\\b${w}\\b`, "i");
+    return regex.test(lower);
+  });
+  if (containsArabic) return "ar-SA";
+
+  // Spanish words and accents
+  const spanishWords = [
+    "hola", "como", "estas", "gracias", "estadio", "puerta", "partido", "futbol", "boletos", 
+    "salida", "entrada", "donde", "cuando", "quien", "que", "por", "favor", "buenos", "noches", "tardes", "dias"
+  ];
+  const containsSpanish = spanishWords.some(w => {
+    const regex = new RegExp(`\\b${w}\\b`, "i");
+    return regex.test(lower);
+  }) || /[áéíóúüñ¿¡]/.test(lower);
+  if (containsSpanish) return "es-MX";
+
+  // French words and accents
+  const frenchWords = [
+    "bonjour", "salut", "comment", "allez", "vous", "merci", "stade", "porte", "match", "billet", 
+    "sortie", "entree", "s'il", "te", "plait", "oui", "non", "ou", "quand", "pourquoi", "qui"
+  ];
+  const containsFrench = frenchWords.some(w => {
+    const regex = new RegExp(`\\b${w}\\b`, "i");
+    return regex.test(lower);
+  }) || /[éèàùçâêîôûëïüœæ]/.test(lower);
+  if (containsFrench) return "fr-FR";
+
+  return "en-US";
+};
+
 export default function CopilotPanel({
   activeRole,
   language,
@@ -48,63 +100,15 @@ export default function CopilotPanel({
   stadiumState,
 }: CopilotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   
-  // Decision Engine state hooks
-  const [activeTab, setActiveTab] = useState<"chat" | "decision">("chat");
-  const [insights, setInsights] = useState<{ summary: string; recommendations: Recommendation[]; timestamp: string } | null>(null);
-  const [isEngineLoading, setIsEngineLoading] = useState(false);
-  const [countdown, setCountdown] = useState(300); // 5 minutes countdown
-  const [acknowledgedRecs, setAcknowledgedRecs] = useState<Record<string, boolean>>({});
-  const [expandedRecId, setExpandedRecId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Fetch insights from our upgraded Stadium Decision Engine backend
-  const fetchDecisionInsights = async () => {
-    setIsEngineLoading(true);
-    try {
-      const res = await fetch("/api/decision-engine/insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: activeRole }),
-      });
-      const data = await res.json();
-      setInsights({
-        summary: data.summary,
-        recommendations: data.recommendations,
-        timestamp: data.timestamp,
-      });
-      setCountdown(300); // Reset the 5-minute timer
-    } catch (err) {
-      console.error("Error fetching decision insights:", err);
-    } finally {
-      setIsEngineLoading(false);
-    }
-  };
-
-  // Trigger load when component mounts or activeRole changes
-  useEffect(() => {
-    fetchDecisionInsights();
-  }, [activeRole]);
-
-  // Handle countdown interval tick
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          fetchDecisionInsights();
-          return 300;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activeRole]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
+  // Initialize welcome message when role changes
   useEffect(() => {
     const liveTime = new Date().toLocaleTimeString([], {
       hour: "2-digit",
@@ -124,11 +128,69 @@ How can I assist your ${activeRole} experience today?`,
       },
     ]);
   }, [activeRole]);
-  const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Autoscroll chat
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      try {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      } catch (e) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [messages, isLoading]);
+
+  // Simulate or execute audio wave when microphone is on
+  useEffect(() => {
+    if (!isRecording) return;
+    const canvas = waveCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let phase = 0;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(147, 51, 234, 0.8)"; // Premium purple wave
+      ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      for (let x = 0; x < canvas.width; x++) {
+        const y =
+          canvas.height / 2 +
+          Math.sin(x * 0.05 + phase) * 12 * Math.sin(x * 0.01) +
+          Math.sin(x * 0.12 - phase) * 4;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.5)"; // cyan accent
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = 0; x < canvas.width; x++) {
+        const y =
+          canvas.height / 2 +
+          Math.sin(x * 0.03 - phase * 0.7) * 8 * Math.sin(x * 0.02) +
+          Math.cos(x * 0.08 + phase) * 3;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      phase += 0.15;
+      animId = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => cancelAnimationFrame(animId);
+  }, [isRecording]);
 
   // Set preset prompt suggestions based on user role
   const getPresetPrompts = (): string[] => {
@@ -166,11 +228,6 @@ How can I assist your ${activeRole} experience today?`,
     }
   };
 
-  // Autoscroll chat
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
-
   // Handle preset click
   const handlePresetClick = (prompt: string) => {
     sendMessage(prompt);
@@ -193,71 +250,9 @@ How can I assist your ${activeRole} experience today?`,
     ]);
   };
 
-  const getLanguageLabel = (code: string) => {
-    const langs: Record<string, string> = {
-      English: "English",
-      Spanish: "Español",
-      French: "Français",
-      Portuguese: "Português",
-      Hindi: "हिन्दी",
-      Arabic: "العربية",
-    };
-    return langs[code] || "English";
-  };
-
-  // Simulate or execute audio wave when microphone is on
-  useEffect(() => {
-    if (!isRecording) return;
-    const canvas = waveCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    let phase = 0;
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "rgba(6, 182, 212, 0.8)";
-      ctx.lineWidth = 2.5;
-
-      ctx.beginPath();
-      for (let x = 0; x < canvas.width; x++) {
-        // Multi-layered sine wave for sci-fi look
-        const y =
-          canvas.height / 2 +
-          Math.sin(x * 0.05 + phase) * 12 * Math.sin(x * 0.01) +
-          Math.sin(x * 0.12 - phase) * 4;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(168, 85, 247, 0.5)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let x = 0; x < canvas.width; x++) {
-        const y =
-          canvas.height / 2 +
-          Math.sin(x * 0.03 - phase * 0.7) * 8 * Math.sin(x * 0.02) +
-          Math.cos(x * 0.08 + phase) * 3;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      phase += 0.15;
-      animId = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => cancelAnimationFrame(animId);
-  }, [isRecording]);
-
   // Simulate Mic Voice Commands
   const toggleRecording = () => {
     if (isRecording) {
-      // Stopped recording -> Send a simulated query
       setIsRecording(false);
       const voiceOptions: Record<UserRole, string[]> = {
         Fan: [
@@ -277,8 +272,13 @@ How can I assist your ${activeRole} experience today?`,
           "Generate World Cup tournament KPI update",
           "Show sustainability energy yield",
         ],
+        Medical: [
+          "Show active ambulance coordinates",
+          "Replenish emergency oxygen supply",
+          "Recommend route to avoid gate A bottleneck",
+        ],
       };
-      const queries = voiceOptions[activeRole];
+      const queries = voiceOptions[activeRole] || ["How's the stadium status?"];
       const selectedQuery = queries[Math.floor(Math.random() * queries.length)];
       sendMessage(selectedQuery);
     } else {
@@ -290,6 +290,12 @@ How can I assist your ${activeRole} experience today?`,
   const sendMessage = async (textToSend?: string) => {
     const queryText = textToSend || inputValue;
     if (!queryText.trim()) return;
+
+    // Detect language of the input query
+    const detectedLang = detectLanguage(queryText);
+    if (detectedLang !== language && onLanguageChange) {
+      onLanguageChange(detectedLang);
+    }
 
     const userMsg: ChatMessage = {
       id: `usr-${Date.now()}`,
@@ -303,10 +309,9 @@ How can I assist your ${activeRole} experience today?`,
     setIsLoading(true);
 
     try {
-      // Construct conversation history to pass to Gemini
       const formattedHistory = messages
         .filter((m) => m.id !== "welcome" && m.id !== "welcome-reset")
-        .slice(-6) // Pass last 6 messages
+        .slice(-6)
         .map((m) => ({
           role: m.sender === "user" ? "user" : "model",
           text: m.text,
@@ -319,23 +324,32 @@ How can I assist your ${activeRole} experience today?`,
           message: queryText,
           history: formattedHistory,
           role: activeRole,
-          language,
+          language: detectedLang,
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Invalid response content-type: ${contentType}`);
+      }
       const data = await res.json();
 
       const copilotMsg: ChatMessage = {
         id: `cop-${Date.now()}`,
         sender: "copilot",
         text: data.response || "No response received.",
+        confidence: data.confidence || "High",
+        intent: data.intent || "General Help",
+        groundedSources: data.groundedSources || ["Stadium Telemetry Network"],
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
       setMessages((prev) => [...prev, copilotMsg]);
     } catch (err: any) {
-      console.error(err);
-      // Fallback
+      console.log("Copilot connection error (using standard local fallback response):", err.message || err);
       setMessages((prev) => [
         ...prev,
         {
@@ -350,6 +364,9 @@ MetLife gates waiting times:
 - Gate A: 24 Mins wait (Critical congestion)
 
 Please configure your \`GEMINI_API_KEY\` to activate custom natural language answers!`,
+          confidence: "High",
+          intent: "Stadium Services",
+          groundedSources: ["Local Simulator Datastore"],
           timestamp: "Now",
         },
       ]);
@@ -379,11 +396,11 @@ Please configure your \`GEMINI_API_KEY\` to activate custom natural language ans
           </div>
         </div>
 
-        {/* Translation selector & clear controls */}
+        {/* Action controls */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={clearChat}
-            className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer"
             title="Clear Chat"
           >
             <Trash2 className="w-4 h-4" />
@@ -391,383 +408,176 @@ Please configure your \`GEMINI_API_KEY\` to activate custom natural language ans
         </div>
       </div>
 
-      {/* Sci-fi Tab Switcher */}
-      <div className="flex border-b border-gray-900 bg-gray-950/40 p-1">
-        <button
-          onClick={() => setActiveTab("chat")}
-          className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === "chat" ? "bg-purple-600/10 border border-purple-500/30 text-purple-400 font-semibold" : "text-gray-400 hover:text-gray-200"}`}
-        >
-          <Bot className="w-3.5 h-3.5" />
-          FIFA Copilot Chat
-        </button>
-        <button
-          onClick={() => setActiveTab("decision")}
-          className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === "decision" ? "bg-cyan-600/10 border border-cyan-500/30 text-cyan-400 font-semibold" : "text-gray-400 hover:text-gray-200"}`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          Decision Engine HUD
-        </button>
-      </div>
-
-      {/* Tab Contents */}
-      {activeTab === "decision" ? (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-950/20">
-          {/* Engine Header / Subtitle */}
-          <div className="flex items-center justify-between border-b border-gray-900 pb-2">
-            <span className="text-[10px] text-cyan-400 font-mono tracking-wider uppercase flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
-              Real-time Decision Matrix ({activeRole})
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] text-gray-500 font-mono flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Refreshed {insights?.timestamp || "just now"}
-              </span>
-              <button
-                onClick={fetchDecisionInsights}
-                disabled={isEngineLoading}
-                className="p-1 hover:bg-gray-900 rounded text-gray-400 hover:text-white transition-colors"
-                title="Force Regenerate Insights"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isEngineLoading ? "animate-spin text-cyan-400" : ""}`} />
-              </button>
+      {/* Message Feed */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex gap-2.5 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+          >
+            {/* Avatar icon */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.sender === "user" ? "bg-cyan-950/80 border-cyan-800 text-cyan-400" : "bg-purple-950/80 border-purple-800 text-purple-400"}`}>
+              {msg.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
             </div>
-          </div>
 
-          {/* AI-Generated Summary Card */}
-          <div className="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-950/20 to-gray-950 p-4 shadow-xl">
-            <div className="absolute top-0 right-0 p-2 text-[8px] font-mono text-cyan-400/60 bg-cyan-950/40 border-l border-b border-cyan-500/10 rounded-bl-lg uppercase tracking-widest">
-              AI Briefing
-            </div>
-            
-            <div className="space-y-2 text-xs leading-relaxed text-gray-200">
-              {isEngineLoading && !insights ? (
-                <div className="space-y-2 py-3">
-                  <div className="h-4 w-1/3 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-3 w-full bg-gray-800 rounded animate-pulse" />
-                  <div className="h-3 w-5/6 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-3 w-2/3 bg-gray-800 rounded animate-pulse" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold font-display text-white border-b border-gray-900 pb-1.5 flex items-center gap-1">
-                    🧠 AI Stadium Briefing
-                    {insights?.isFallback && (
-                      <span className="text-[8px] bg-amber-900/40 text-amber-300 font-mono border border-amber-800/60 px-1 rounded uppercase">
-                        Offline Sim
-                      </span>
-                    )}
-                  </h4>
-                  <div className="space-y-2 text-xs text-gray-300">
-                    {insights?.summary.split("\n").map((line, idx) => {
-                      if (!line.trim()) return <div key={idx} className="h-1" />;
-                      if (line.startsWith("###")) {
-                        return <h5 key={idx} className="font-semibold text-white mt-2 pt-1 font-sans">{line.replace("###", "")}</h5>;
-                      }
-                      if (line.startsWith("* ") || line.startsWith("- ")) {
-                        const content = line.substring(2).replace(/\*\*(.*?)\*\*/g, "$1");
-                        return (
-                          <div key={idx} className="flex items-start gap-1.5 pl-1.5">
-                            <span className="text-cyan-400 mt-1">•</span>
-                            <span>{content}</span>
-                          </div>
-                        );
-                      }
-                      // Handle bold replacement in standard text lines
-                      const parts = line.split(/\*\*(.*?)\*\*/g);
-                      return (
-                        <p key={idx}>
-                          {parts.map((p, i) => i % 2 === 1 ? <strong key={i} className="text-white font-semibold">{p}</strong> : p)}
-                        </p>
-                      );
-                    })}
-                  </div>
+            {/* Bubble contents */}
+            <div className={`max-w-[80%] rounded-2xl p-3 text-xs leading-relaxed ${msg.sender === "user" ? "bg-cyan-900/30 text-cyan-100 border border-cyan-900/50" : "bg-gray-900/50 text-gray-200 border border-gray-800/80"}`}>
+              {/* Visual Grounding ribbon for Copilot replies */}
+              {msg.sender === "copilot" && (msg.intent || msg.confidence) && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-800/50 text-[10px] text-gray-400">
+                  {msg.intent && (
+                    <span className="px-1.5 py-0.5 rounded bg-purple-950/50 text-purple-300 border border-purple-900/40 font-mono text-[9px]">
+                      {msg.intent}
+                    </span>
+                  )}
+                  {msg.confidence && (
+                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] ${
+                      msg.confidence === "High" 
+                        ? "bg-emerald-950/50 text-emerald-300 border border-emerald-900/40" 
+                        : msg.confidence === "Medium"
+                          ? "bg-amber-950/50 text-amber-300 border border-amber-900/40"
+                          : "bg-rose-950/50 text-rose-300 border border-rose-900/40"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        msg.confidence === "High" 
+                          ? "bg-emerald-400 animate-pulse" 
+                          : msg.confidence === "Medium"
+                            ? "bg-amber-400"
+                            : "bg-rose-400"
+                      }`} />
+                      {msg.confidence} Confidence
+                    </span>
+                  )}
                 </div>
               )}
-            </div>
 
-            {/* Countdown bar */}
-            <div className="mt-4 pt-2 border-t border-gray-900/60 flex items-center justify-between text-[9px] font-mono text-gray-500">
-              <span>5-MIN AI BRIEFING CADENCE</span>
-              <span className="text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-900 font-mono">
-                Next update in {formatTime(countdown)}
-              </span>
-            </div>
-          </div>
+              {/* Parse bold and linebreaks simply */}
+              <div className="space-y-1.5 font-sans">
+                {msg.text.split("\n").map((para, i) => {
+                  if (!para.trim()) return <div key={i} className="h-2" />;
 
-          {/* Operational Recommendations title */}
-          <div className="pt-2">
-            <h4 className="text-xs font-display font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-yellow-400" />
-              Operational Directives
-            </h4>
+                  if (para.startsWith("- ") || para.startsWith("* ")) {
+                    const formattedBullet = para.substring(2).replace(/\*\*(.*?)\*\*/g, "$1");
+                    return (
+                      <div key={i} className="flex items-start gap-1.5 pl-2">
+                        <span className="text-purple-400 text-sm leading-none">•</span>
+                        <span>{formattedBullet}</span>
+                      </div>
+                    );
+                  }
 
-            {isEngineLoading && !insights ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="p-3 bg-gray-900/30 border border-gray-900 rounded-xl space-y-2">
-                    <div className="h-3 w-1/2 bg-gray-800 rounded animate-pulse" />
-                    <div className="h-2 w-full bg-gray-800 rounded animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {insights?.recommendations.map((rec) => {
-                  const isAcknowledged = acknowledgedRecs[rec.id];
-                  const isExpanded = expandedRecId === rec.id;
-                  
-                  // Category color maps
-                  const categoryColors: Record<string, { bg: string, text: string, border: string }> = {
-                    crowd: { bg: "bg-red-950/40", text: "text-red-400", border: "border-red-900/40" },
-                    transit: { bg: "bg-blue-950/40", text: "text-blue-400", border: "border-blue-900/40" },
-                    safety: { bg: "bg-amber-950/40", text: "text-amber-400", border: "border-amber-900/40" },
-                    weather: { bg: "bg-cyan-950/40", text: "text-cyan-400", border: "border-cyan-900/40" },
-                    facilities: { bg: "bg-purple-950/40", text: "text-purple-400", border: "border-purple-900/40" },
-                    power: { bg: "bg-green-950/40", text: "text-green-400", border: "border-green-900/40" },
-                  };
-
-                  const catStyle = categoryColors[rec.category] || { bg: "bg-gray-900/40", text: "text-gray-400", border: "border-gray-800" };
-
-                  // Priority styles
-                  const priorityColors: Record<string, string> = {
-                    Critical: "bg-red-500/20 text-red-300 border-red-500/30 font-bold animate-pulse",
-                    High: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-                    Medium: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-                    Low: "bg-gray-500/10 text-gray-400 border-gray-800",
-                  };
-                  const prioStyle = priorityColors[rec.priority] || "bg-gray-800 text-gray-400";
+                  const parts = para.split(/\*\*(.*?)\*\*/g);
+                  const isHeader = para.startsWith("###");
+                  const content = parts.map((part, index) => {
+                    if (index % 2 === 1) {
+                      return <strong key={index} className="text-white font-semibold">{part}</strong>;
+                    }
+                    return part;
+                  });
 
                   return (
-                    <div
-                      key={rec.id}
-                      className={`group p-3 rounded-xl border transition-all duration-300 ${isAcknowledged ? "bg-gray-900/30 border-gray-800 opacity-60" : "bg-gray-900/50 hover:bg-gray-900/85 border-gray-850/80 hover:border-gray-800 shadow-lg"}`}
-                    >
-                      {/* Header tags */}
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          <span className={`text-[8px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}>
-                            {rec.category}
-                          </span>
-                          <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border ${prioStyle}`}>
-                            {rec.priority}
-                          </span>
-                        </div>
-                        
-                        {/* Confidence Indicator */}
-                        <div className="flex items-center gap-1 text-[9px] font-mono text-gray-400 shrink-0">
-                          <TrendingUp className="w-3 h-3 text-cyan-400" />
-                          <span>{rec.confidenceScore}% Acc</span>
-                        </div>
-                      </div>
-
-                      {/* Title */}
-                      <h5 className="font-semibold text-xs text-white mb-1">
-                        {rec.title}
-                      </h5>
-
-                      {/* Description */}
-                      <p className="text-[11px] text-gray-300 leading-relaxed mb-2.5">
-                        {rec.description}
-                      </p>
-
-                      {/* Expandable Reasoning Section */}
-                      <div className="border-t border-gray-900/80 pt-1.5 mt-1.5">
-                        <button
-                          onClick={() => setExpandedRecId(isExpanded ? null : rec.id)}
-                          className="flex items-center gap-1 text-[9px] font-mono text-cyan-500 hover:text-cyan-400 transition-colors"
-                        >
-                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          {isExpanded ? "Hide Tactical Rationale" : "View Tactical Rationale"}
-                        </button>
-                        
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="overflow-hidden mt-2 text-[10px] text-gray-400 leading-relaxed bg-gray-950/60 p-2 rounded-lg border border-gray-900 font-sans space-y-1"
-                            >
-                              <strong className="text-[9px] font-mono text-gray-500 block uppercase tracking-wider mb-1">DATA ANALYSIS RATIONALE:</strong>
-                              {rec.reasoning.split("\n").map((para, i) => (
-                                <p key={i}>{para}</p>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Action Button footer */}
-                      <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-900/60">
-                        {isAcknowledged ? (
-                          <span className="text-[9px] font-mono text-green-400 flex items-center gap-1 bg-green-950/20 px-2 py-0.5 rounded border border-green-900/30">
-                            <CheckCircle2 className="w-3 h-3 text-green-400" />
-                            Active & Dispatched
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => setAcknowledgedRecs(prev => ({ ...prev, [rec.id]: true }))}
-                            className="text-[9px] font-mono bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-900/40 rounded px-2.5 py-1 transition-all flex items-center gap-1 hover:shadow-lg hover:shadow-purple-900/20"
-                          >
-                            <Zap className="w-3 h-3 text-purple-400" />
-                            {rec.actionLabel || "Deploy Directive"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <p key={i} className={isHeader ? "text-sm font-bold text-white pt-2 font-display" : ""}>
+                      {isHeader ? para.replace("###", "") : content}
+                    </p>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Message Feed */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
-              >
-                {/* Avatar icon */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${msg.sender === "user" ? "bg-cyan-950/80 border-cyan-800 text-cyan-400" : "bg-purple-950/80 border-purple-800 text-purple-400"}`}>
-                  {msg.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                </div>
 
-                {/* Bubble contents */}
-                <div className={`max-w-[80%] rounded-2xl p-3 text-xs leading-relaxed ${msg.sender === "user" ? "bg-cyan-900/30 text-cyan-100 border border-cyan-900/50" : "bg-gray-900/50 text-gray-200 border border-gray-800/80"}`}>
-                  {/* Parse bold and linebreaks simply */}
-                  <div className="space-y-1.5">
-                    {msg.text.split("\n").map((para, i) => {
-                      if (!para.trim()) return <div key={i} className="h-2" />;
-
-                      // Check if it's a bullet list
-                      if (para.startsWith("- ") || para.startsWith("* ")) {
-                        const formattedBullet = para.substring(2).replace(/\*\*(.*?)\*\*/g, "$1");
-                        return (
-                          <div key={i} className="flex items-start gap-1.5 pl-2">
-                            <span className="text-purple-400 text-sm leading-none">•</span>
-                            <span>{formattedBullet}</span>
-                          </div>
-                        );
-                      }
-
-                      // Handle bold replacements
-                      const parts = para.split(/\*\*(.*?)\*\*/g);
-                      const isHeader = para.startsWith("###");
-                      const content = parts.map((part, index) => {
-                        if (index % 2 === 1) {
-                          return <strong key={index} className="text-white font-semibold">{part}</strong>;
-                        }
-                        return part;
-                      });
-
-                      return (
-                        <p key={i} className={isHeader ? "text-sm font-bold text-white pt-2" : ""}>
-                          {isHeader ? para.replace("###", "") : content}
-                        </p>
-                      );
-                    })}
-                  </div>
-
-                  {/* Timestamp */}
-                  <span className="text-[9px] text-gray-500 font-mono block text-right mt-1.5">
-                    {msg.timestamp}
+              {/* Grounded sources and timestamp info row */}
+              <div className="mt-2 pt-1.5 border-t border-gray-800/40 flex items-center justify-between gap-2 text-[9px]">
+                {msg.sender === "copilot" && msg.groundedSources && msg.groundedSources.length > 0 ? (
+                  <span className="text-gray-500 font-mono truncate max-w-[70%]" title={msg.groundedSources.join(", ")}>
+                    Grounded: {msg.groundedSources.join(", ")}
                   </span>
-                </div>
+                ) : (
+                  <span />
+                )}
+                <span className="text-gray-500 font-mono shrink-0">
+                  {msg.timestamp}
+                </span>
               </div>
-            ))}
-
-            {/* Loading skeleton */}
-            {isLoading && (
-              <div className="flex gap-2.5">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center border bg-purple-950/80 border-purple-800 text-purple-400 shrink-0">
-                  <Bot className="w-4 h-4 animate-spin" />
-                </div>
-                <div className="bg-gray-900/50 border border-gray-800 p-3 rounded-2xl max-w-[80%] space-y-2">
-                  <div className="h-3 w-40 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-3 w-48 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-3 w-32 bg-gray-800 rounded animate-pulse" />
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Voice Recording Modal simulator overlay */}
-          <AnimatePresence>
-            {isRecording && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "80px" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="px-4 py-2.5 bg-gray-950 border-t border-cyan-950/40 flex flex-col justify-center items-center gap-2"
-              >
-                <div className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 bg-red-500 rounded-full animate-ping" />
-                  Listening to voice query (accent-adapted)
-                </div>
-                <canvas ref={waveCanvasRef} width="320" height="30" className="w-full max-w-[320px] opacity-90" />
-                <button
-                  onClick={() => setIsRecording(false)}
-                  className="text-[9px] font-mono text-gray-500 hover:text-white uppercase"
-                >
-                  Cancel Recording
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Preset Prompt suggestion pills */}
-          <div className="p-2 border-t border-gray-900 bg-gray-950/50">
-            <div className="text-[10px] font-mono text-gray-500 uppercase px-2 mb-1">
-              Suggestions ({activeRole})
-            </div>
-            <div className="flex flex-wrap gap-1 px-1 max-h-24 overflow-y-auto">
-              {getPresetPrompts().map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handlePresetClick(p)}
-                  className="text-[10px] bg-gray-900 border border-gray-800 text-gray-300 hover:text-white hover:bg-purple-950/30 hover:border-purple-900/40 px-2 py-1 rounded-full transition-all text-left truncate max-w-full"
-                >
-                  {p}
-                </button>
-              ))}
             </div>
           </div>
+        ))}
 
-          {/* Input box */}
-          <div className="p-3 border-t border-gray-950 bg-gray-950/90 flex gap-2 items-center">
+        {/* Loading skeleton */}
+        {isLoading && (
+          <div className="flex gap-2.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center border bg-purple-950/80 border-purple-800 text-purple-400 shrink-0">
+              <Bot className="w-4 h-4 animate-spin" />
+            </div>
+            <div className="bg-gray-900/50 border border-gray-800 p-3 rounded-2xl max-w-[80%] space-y-2">
+              <div className="h-3 w-40 bg-gray-800 rounded animate-pulse" />
+              <div className="h-3 w-48 bg-gray-800 rounded animate-pulse" />
+              <div className="h-3 w-32 bg-gray-800 rounded animate-pulse" />
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Voice Recording Modal simulator overlay */}
+      <AnimatePresence>
+        {isRecording && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "80px" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-4 py-2.5 bg-gray-950 border-t border-cyan-950/40 flex flex-col justify-center items-center gap-2"
+          >
+            <div className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest flex items-center gap-1">
+              <span className="h-1.5 w-1.5 bg-red-500 rounded-full animate-ping" />
+              Listening to voice query (accent-adapted)
+            </div>
+            <canvas ref={waveCanvasRef} width="320" height="30" className="w-full max-w-[320px] opacity-90" />
             <button
-              onClick={toggleRecording}
-              className={`p-2.5 rounded-xl border transition-all shrink-0 ${isRecording ? "bg-red-950 border-red-500 text-red-400 animate-pulse" : "bg-gray-900 border-gray-800 text-cyan-400 hover:text-white hover:bg-gray-800"}`}
-              title="Voice Simulation Input"
+              onClick={() => setIsRecording(false)}
+              className="text-[9px] font-mono text-gray-500 hover:text-white uppercase cursor-pointer"
             >
-              <Mic className="w-4 h-4" />
+              Cancel Recording
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Query FIFA Copilot..."
-                className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-600/50"
-              />
-              <button
-                onClick={() => sendMessage()}
-                className="absolute right-2 top-1.5 p-1 text-purple-400 hover:text-white hover:bg-purple-950/30 rounded-lg transition-colors"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Preset Prompt suggestion pills */}
+      <div className="p-2 border-t border-gray-900 bg-gray-950/50">
+        <div className="text-[10px] font-mono text-gray-500 uppercase px-2 mb-1">
+          Suggestions ({activeRole})
+        </div>
+        <div className="flex flex-wrap gap-1 px-1 max-h-24 overflow-y-auto">
+          {getPresetPrompts().map((p, idx) => (
+            <button
+              key={idx}
+              onClick={() => handlePresetClick(p)}
+              className="text-[10px] bg-gray-900 border border-gray-800 text-gray-300 hover:text-white hover:bg-purple-950/30 hover:border-purple-900/40 px-2 py-1 rounded-full transition-all text-left truncate max-w-full cursor-pointer"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input box */}
+      <div className="p-3 border-t border-gray-950 bg-gray-950/90 flex gap-2 items-center">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Query FIFA Copilot..."
+            className="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-600/50"
+          />
+          <button
+            onClick={() => sendMessage()}
+            className="absolute right-2 top-1.5 p-1 text-purple-400 hover:text-white hover:bg-purple-950/30 rounded-lg transition-colors cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

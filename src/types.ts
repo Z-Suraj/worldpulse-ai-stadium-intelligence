@@ -80,7 +80,7 @@ export interface StadiumState {
   evacuationSimulating: boolean;
 }
 
-export type UserRole = "Fan" | "Volunteer" | "Operations" | "Organizer";
+export type UserRole = "Fan" | "Volunteer" | "Operations" | "Organizer" | "Medical";
 
 export interface ChatMessage {
   id: string;
@@ -88,4 +88,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   suggestedActions?: string[];
+  confidence?: "High" | "Medium" | "Low";
+  intent?: string;
+  groundedSources?: string[];
 }

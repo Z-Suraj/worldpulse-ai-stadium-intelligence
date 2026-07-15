@@ -1,4 +1,4 @@
-const CACHE_NAME = "worldpulse-v1";
+const CACHE_NAME = "worldpulse-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -67,13 +67,16 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // If successful, clone and put in cache
-          if (response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
-            });
+          const contentType = response.headers.get("content-type") || "";
+          // If the network response is an HTML page (error/SPA fallback), reject it to trigger the fallback block
+          if (response.status !== 200 || contentType.includes("text/html")) {
+            throw new Error("Invalid API response format (HTML received instead of JSON)");
           }
+          // If successful and valid JSON, clone and put in cache
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseClone);
+          });
           return response;
         })
         .catch(() => {

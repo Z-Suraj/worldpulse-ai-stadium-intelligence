@@ -21,11 +21,18 @@ export default function StrategicScenarioPlanner() {
           customPrompt,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       setStrategicReport(data.response || "No strategic summary returned.");
-    } catch (err) {
-      console.error("Thinking Simulation failed:", err);
-      setStrategicReport("Failed to generate strategic thinking simulation.");
+    } catch (err: any) {
+      console.log("Thinking Simulation failed:", err.message || err);
+      setStrategicReport("Failed to generate strategic thinking simulation. Using local reserve protocols.");
     } finally {
       setLoading(false);
     }

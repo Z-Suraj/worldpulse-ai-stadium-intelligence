@@ -21,15 +21,22 @@ export default function TransitScout() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
 
       setResults(data.text || data.answer || "No grounded coordinates located.");
       if (data.sources) {
         setSources(data.sources);
       }
-    } catch (err) {
-      console.error("Grounding scout failed:", err);
-      setResults("Scout service temporarily unavailable.");
+    } catch (err: any) {
+      console.log("Grounding scout failed:", err.message || err);
+      setResults("Scout service temporarily offline. Serving local routing guidance.");
     } finally {
       setLoading(false);
     }

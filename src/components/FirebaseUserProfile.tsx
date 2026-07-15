@@ -13,6 +13,7 @@ export default function FirebaseUserProfile({ onUserChange }: FirebaseUserProfil
   const [assets, setAssets] = useState<any[]>([]);
   const [itineraries, setItineraries] = useState<any[]>([]);
   const [activeHistoryTab, setActiveHistoryTab] = useState<"assets" | "itineraries">("assets");
+  const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
 
   useEffect(() => {
     const setupAuth = async () => {
@@ -54,11 +55,16 @@ export default function FirebaseUserProfile({ onUserChange }: FirebaseUserProfil
   };
 
   const handleSignIn = async () => {
+    setAuthError(null);
     try {
       const loggedUser = await signInWithGoogle();
       setUser(loggedUser);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sign in failed:", err);
+      setAuthError({
+        code: err?.code || "unknown",
+        message: err?.message || "Google Authentication issue."
+      });
     }
   };
 
@@ -100,6 +106,59 @@ export default function FirebaseUserProfile({ onUserChange }: FirebaseUserProfil
             <LogIn className="w-3.5 h-3.5" />
             Connect Google Account
           </button>
+
+          {typeof window !== "undefined" && window.location.hostname === "worldpulse-ai.ai.studio" && (
+            <div className="mt-2.5 p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-left">
+              <p className="text-[9px] text-purple-300 leading-relaxed">
+                <span className="text-purple-400 font-semibold block mb-0.5">🚀 Google Login & Install Link:</span>
+                If Google Login fails here, please visit our pre-whitelisted direct URL where Google Sign-In & PWA works 100% instantly without any setup:
+                <a 
+                  href="https://worldpulse-ai-142502196934.asia-southeast1.run.app" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-purple-400 hover:text-purple-300 underline font-bold mt-1 block break-all font-mono"
+                >
+                  https://worldpulse-ai-142502196934.asia-southeast1.run.app
+                </a>
+              </p>
+            </div>
+          )}
+
+          {authError && (
+            <div className="mt-3 text-left p-3 rounded-xl bg-red-950/40 border border-red-500/20 space-y-2">
+              <div className="flex items-start gap-1.5 text-red-400 font-semibold text-[11px]">
+                <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>Google Auth Setup Required</span>
+              </div>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Firebase limits Google login to whitelisted domains. To fix this, you must add your custom domain to your Firebase settings.
+              </p>
+              <div className="text-[10px] text-gray-500 space-y-1 font-mono">
+                <div className="font-semibold text-gray-400">Easy Fix Steps:</div>
+                <div className="text-gray-400">1. Open <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-purple-400 hover:underline font-bold">Firebase Console</a></div>
+                <div className="text-gray-400">2. Select project &gt; <b>Authentication</b> &gt; <b>Settings</b> tab</div>
+                <div className="text-gray-400">3. Click on <b>"Authorized domains"</b></div>
+                <div className="text-gray-400">4. Click <b>"Add domain"</b> and add:</div>
+                <div className="text-purple-400 font-bold select-all bg-purple-950/60 p-1 rounded break-all">
+                  worldpulse-ai.ai.studio
+                </div>
+                {typeof window !== "undefined" && window.location.hostname !== "worldpulse-ai.ai.studio" && (
+                  <>
+                    <div className="text-gray-400">And also add:</div>
+                    <div className="text-purple-400 font-bold select-all bg-purple-950/60 p-1 rounded break-all">
+                      {window.location.hostname}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setAuthError(null)}
+                className="text-[9px] text-purple-400 hover:underline pt-1 block"
+              >
+                Dismiss Alert
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

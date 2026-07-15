@@ -12,6 +12,7 @@ import IncidentCommand from "./components/IncidentCommand";
 import StrategicScenarioPlanner from "./components/StrategicScenarioPlanner";
 import TransitScout from "./components/TransitScout";
 import LiveWalkieTalkie from "./components/LiveWalkieTalkie";
+import MedicalSupport from "./components/MedicalSupport";
 import { User } from "firebase/auth";
 import { saveUserItinerary } from "./firebase";
 import {
@@ -44,6 +45,8 @@ import {
   CheckCircle2,
   Map,
   BookOpen,
+  HeartPulse,
+  ArrowLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -247,7 +250,7 @@ export default function App() {
   const selectedMatch = `${currentMatch.homeTeam} vs ${currentMatch.awayTeam} (${currentMatch.stage})`;
   const [fanSeat, setFanSeat] = useState(currentMatch.seat);
   const [ticketType, setTicketType] = useState(currentMatch.ticketType);
-  const [ticketTab, setTicketTab] = useState<"public" | "user" | "operations">("user");
+  const [ticketTab, setTicketTab] = useState<"public" | "user" | "operations" | "medical">("user");
   const [accessibilityNeeds, setAccessibilityNeeds] = useState(false);
   const [itineraryResult, setItineraryResult] = useState<string>("");
   const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
@@ -263,6 +266,18 @@ export default function App() {
   useEffect(() => {
     setIsMounted(true);
     
+    if (typeof window !== "undefined") {
+      try {
+        if ("scrollRestoration" in window.history) {
+          window.history.scrollRestoration = "manual";
+        }
+      } catch (e) {
+        console.warn("Could not disable automatic scroll restoration:", e);
+      }
+      // Guarantee opening at the top of the landing/home page
+      window.scrollTo(0, 0);
+    }
+    
     let shouldBypass = false;
     if (typeof window !== "undefined") {
       try {
@@ -272,7 +287,7 @@ export default function App() {
           shouldBypass = localStorage.getItem("worldpulse_landing_entered") === "true";
         }
       } catch (e) {
-        console.error("Storage access error:", e);
+        console.log("Storage access error:", e);
       }
     }
 
@@ -296,6 +311,13 @@ export default function App() {
       setEntered(false);
     }
   }, []);
+
+  // Force scroll to top on page navigation, transition state updates, or hash routes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, [entered, selectedMatchId]);
 
   // Dynamic Hash-Routing System (listens to manual user navigation/back-forward actions)
   useEffect(() => {
@@ -380,11 +402,18 @@ export default function App() {
     setIsRefreshing(true);
     try {
       const res = await fetch(`/api/sensor-feed?matchId=${selectedMatchId}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Invalid response content-type: ${contentType}`);
+      }
       const data = await res.json();
       setStadiumState(data);
       setOfflineSyncTime(new Date().toLocaleTimeString());
     } catch (error) {
-      console.error("Error fetching stadium sensor feed:", error);
+      console.log("Error fetching stadium sensor feed (using local resilient state):", error);
     } finally {
       setIsRefreshing(false);
     }
@@ -405,6 +434,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, task, status }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       if (data.success && stadiumState) {
         setStadiumState({
@@ -413,7 +449,7 @@ export default function App() {
         });
       }
     } catch (error) {
-      console.error("Error updating volunteer task:", error);
+      console.log("Error updating volunteer task:", error);
     }
   };
 
@@ -421,6 +457,13 @@ export default function App() {
   const handleToggleEvacuation = async () => {
     try {
       const res = await fetch("/api/evacuation/toggle", { method: "POST" });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       if (data.success && stadiumState) {
         setStadiumState({
@@ -430,7 +473,7 @@ export default function App() {
         });
       }
     } catch (error) {
-      console.error("Error toggling evacuation:", error);
+      console.log("Error toggling evacuation:", error);
     }
   };
 
@@ -460,6 +503,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(inc),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       if (data.success && stadiumState) {
         setStadiumState({
@@ -468,7 +518,7 @@ export default function App() {
         });
       }
     } catch (error) {
-      console.error("Error reporting incident:", error);
+      console.log("Error reporting incident:", error);
     }
   };
 
@@ -480,6 +530,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       if (data.success && stadiumState) {
         setStadiumState({
@@ -488,7 +545,7 @@ export default function App() {
         });
       }
     } catch (error) {
-      console.error("Error resolving incident:", error);
+      console.log("Error resolving incident:", error);
     }
   };
 
@@ -509,10 +566,17 @@ export default function App() {
           language,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       setItineraryResult(data.itinerary || "Could not generate itinerary.");
     } catch (error) {
-      console.error("Error generating itinerary:", error);
+      console.log("Error generating itinerary:", error);
       setItineraryResult("Failed to reach itinerary generation services.");
     } finally {
       setIsGeneratingItinerary(false);
@@ -534,7 +598,7 @@ export default function App() {
       });
       setSavePlanMessage("Plan synced successfully! Check your vault.");
     } catch (err) {
-      console.error("Error saving plan:", err);
+      console.log("Error saving plan:", err);
       setSavePlanMessage("Failed to sync plan to Cloud.");
     } finally {
       setIsSavingPlan(false);
@@ -554,10 +618,17 @@ export default function App() {
           language,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${contentType}`);
+      }
       const data = await res.json();
       setExecMemo(data.response || "No report returned from executive summary engine.");
     } catch (error) {
-      console.error("Error generating executive memo:", error);
+      console.log("Error generating executive memo:", error);
       setExecMemo("Failed to generate operational report memo.");
     } finally {
       setIsGeneratingMemo(false);
@@ -583,42 +654,35 @@ export default function App() {
     );
   }
 
-  if (!isMounted || !entered) {
-    return (
-      <CinematicLanding
-        onEnter={(matchId) => {
-          if (matchId) {
-            setSelectedMatchId(matchId);
-            const m = MATCHES_DATABASE.find((item) => item.id === matchId);
-            if (m) {
-              setFanSeat(m.seat);
-              setTicketType(m.ticketType);
-              setStadiumState(prev => prev ? { ...prev, activeStadium: m.stadiumFullName } : prev);
-              window.location.hash = `#/match/${m.id}`;
-            }
-          } else {
-            // Default to m1 if none selected
-            setSelectedMatchId("m1");
-            const m = MATCHES_DATABASE[0];
-            setFanSeat(m.seat);
-            setTicketType(m.ticketType);
-            setStadiumState(prev => prev ? { ...prev, activeStadium: m.stadiumFullName } : prev);
-            window.location.hash = `#/match/m1`;
-          }
-          
-          if (typeof window !== "undefined") {
-            try {
-              sessionStorage.setItem("worldpulse_landing_entered", "true");
-              localStorage.setItem("worldpulse_landing_entered", "true");
-            } catch (e) {
-              console.error("Storage access error:", e);
-            }
-          }
-          setEntered(true);
-        }}
-      />
-    );
-  }
+  const handleEnterLanding = (matchId?: string) => {
+    if (matchId) {
+      setSelectedMatchId(matchId);
+      const m = MATCHES_DATABASE.find((item) => item.id === matchId);
+      if (m) {
+        setFanSeat(m.seat);
+        setTicketType(m.ticketType);
+        setStadiumState(prev => prev ? { ...prev, activeStadium: m.stadiumFullName } : prev);
+        window.location.hash = `#/match/${m.id}`;
+      }
+    } else {
+      setSelectedMatchId("m1");
+      const m = MATCHES_DATABASE[0];
+      setFanSeat(m.seat);
+      setTicketType(m.ticketType);
+      setStadiumState(prev => prev ? { ...prev, activeStadium: m.stadiumFullName } : prev);
+      window.location.hash = `#/match/m1`;
+    }
+    
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("worldpulse_landing_entered", "true");
+        localStorage.setItem("worldpulse_landing_entered", "true");
+      } catch (e) {
+        console.error("Storage access error:", e);
+      }
+    }
+    setEntered(true);
+  };
 
   const getRecommendedGate = (seat: string, gates: Gate[]) => {
     const match = seat.match(/\d+/);
@@ -710,9 +774,30 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 font-sans selection:bg-purple-900 selection:text-purple-100 flex flex-col">
-      {/* Dynamic Top Glow header background */}
-      <div className="absolute top-0 left-1/4 right-1/4 h-32 bg-purple-900/10 rounded-full blur-3xl pointer-events-none" />
+    <>
+      <AnimatePresence mode="wait">
+      {!isMounted || !entered ? (
+        <motion.div
+          key="landing"
+          initial={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          style={{ willChange: "opacity, transform" }}
+          className="w-full min-h-screen bg-gray-950"
+        >
+          <CinematicLanding onEnter={handleEnterLanding} />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="dashboard"
+          initial={{ opacity: 0, scale: 1.01 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          style={{ willChange: "opacity, transform" }}
+          className="min-h-screen bg-gray-950 text-gray-100 font-sans selection:bg-purple-900 selection:text-purple-100 flex flex-col relative overflow-x-hidden"
+        >
+          {/* Dynamic Top Glow header background */}
+          <div className="absolute top-0 left-1/4 right-1/4 h-32 bg-purple-900/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main App Bar Header */}
       <header className="border-b border-gray-900 bg-gray-950/80 backdrop-blur sticky top-0 z-40 px-4 py-3 lg:px-6 flex items-center justify-between">
@@ -814,7 +899,7 @@ export default function App() {
       {/* Role Switcher sub-bar */}
       <div className="border-b border-gray-950 bg-gray-950/40 p-2.5 flex justify-center sticky top-[53px] z-30 backdrop-blur-sm">
         <div className="flex bg-gray-900/80 p-1 rounded-xl border border-gray-800 max-w-full overflow-x-auto space-x-1">
-          {(["Fan", "Volunteer", "Operations", "Organizer"] as UserRole[]).map((role) => {
+          {(["Fan", "Volunteer", "Operations", "Organizer", "Medical"] as UserRole[]).map((role) => {
             const isActive = activeRole === role;
             return (
               <button
@@ -826,6 +911,7 @@ export default function App() {
                 {role === "Volunteer" && "🤝 Volunteer App"}
                 {role === "Operations" && "⚙️ Venue Ops"}
                 {role === "Organizer" && "👑 Organizer HQ"}
+                {role === "Medical" && "🩺 Medical Support"}
               </button>
             );
           })}
@@ -849,7 +935,19 @@ export default function App() {
       )}
 
       {/* Main Content Workspace layout (Digital Twin, Workspace, Copilot) */}
-      <main className="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1600px] mx-auto w-full">
+      {activeRole === "Medical" ? (
+        <main className="flex-1 p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
+          <MedicalSupport
+            stadiumState={stadiumState}
+            activeRole={activeRole}
+            userSeat={fanSeat}
+            onAddIncident={(title, location, severity, description) => {
+              createIncidentDirectly({ title, location, severity, description });
+            }}
+          />
+        </main>
+      ) : (
+        <main className="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1600px] mx-auto w-full">
         {/* Left column: Digital Twin (5 cols) */}
         <section className="lg:col-span-5 flex flex-col gap-6">
           <StadiumDigitalTwin
@@ -1781,6 +1879,7 @@ export default function App() {
           />
         </section>
       </main>
+      )}
 
       {/* Incident Modal (Report New Events) */}
       <AnimatePresence>
@@ -1871,224 +1970,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Seat Map Navigation Modal */}
-      <AnimatePresence>
-        {showSeatMapModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-gray-950 border border-gray-800 rounded-2xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-display font-semibold text-sm text-white flex items-center gap-1.5">
-                  <Compass className="w-5 h-5 text-purple-400 animate-spin" style={{ animationDuration: "12s" }} />
-                  Interactive Stadium Seat Locator
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowSeatMapModal(false)}
-                  className="text-[10px] text-gray-500 hover:text-white font-mono bg-gray-900 border border-gray-800 px-2 py-0.5 rounded transition-all"
-                >
-                  [CLOSE]
-                </button>
-              </div>
-
-              <p className="text-[11px] text-gray-400 mb-5 leading-relaxed">
-                Click on any seating sector around the arena bowl to locate security entry queues, find nearby concessions, or bind the ticket seat section.
-              </p>
-
-              {/* 2D Stadium Map Visual Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                <div className="md:col-span-7 flex flex-col items-center gap-4 bg-black/40 p-4 rounded-xl border border-gray-900">
-                  {/* Viewport container with overflow-hidden and relative size */}
-                  <div className="relative w-72 h-72 rounded-xl border-2 border-gray-800 bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 overflow-hidden shadow-inner flex items-center justify-center">
-                    
-                    {/* Animated Canvas */}
-                    <div ref={mapCanvasRef} className="relative w-64 h-64 rounded-full border-4 border-gray-800/40 flex items-center justify-center bg-transparent">
-                      {/* Inner pitch / field */}
-                      <div className="w-24 h-36 bg-green-950/60 border border-green-500/30 rounded flex items-center justify-center relative rotate-90 shadow-inner">
-                        <div className="w-full h-0.5 bg-green-500/20 absolute top-1/2" />
-                        <div className="w-8 h-8 rounded-full border border-green-500/20 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                        <span className="text-[8px] font-mono text-green-400 tracking-widest uppercase">PITCH</span>
-                      </div>
-
-                      {/* Sectors Ring Indicators */}
-                      {/* North Sector (101-112) */}
-                      <div
-                        className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow pointer-events-none ${fanSeat.includes("105") ? "bg-purple-600 text-white border border-purple-400" : "bg-gray-900 text-gray-400 border border-gray-800"}`}
-                      >
-                        SEC 105 (North)
-                      </div>
-                      {/* East Sector (113-125) */}
-                      <div
-                        className={`absolute right-4 top-1/2 transform -translate-y-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow pointer-events-none ${fanSeat.includes("114") ? "bg-purple-600 text-white border border-purple-400" : "bg-gray-900 text-gray-400 border border-gray-800"}`}
-                      >
-                        SEC 114 (East)
-                      </div>
-                      {/* South Sector (126-138) */}
-                      <div
-                        className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow pointer-events-none ${fanSeat.includes("130") ? "bg-purple-600 text-white border border-purple-400" : "bg-gray-900 text-gray-400 border border-gray-800"}`}
-                      >
-                        SEC 130 (South)
-                      </div>
-                      {/* West Sector (Other) */}
-                      <div
-                        className={`absolute left-4 top-1/2 transform -translate-y-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow pointer-events-none ${fanSeat.includes("140") ? "bg-purple-600 text-white border border-purple-400" : "bg-gray-900 text-gray-400 border border-gray-800"}`}
-                      >
-                        SEC 140 (West)
-                      </div>
-
-                      {/* Indicator labels */}
-                      <span className="absolute top-1/4 left-1/4 text-[8px] font-mono text-gray-600">GATE B</span>
-                      <span className="absolute top-1/4 right-1/4 text-[8px] font-mono text-gray-600">GATE A</span>
-                      <span className="absolute bottom-1/4 left-1/4 text-[8px] font-mono text-gray-600">GATE C</span>
-                      <span className="absolute bottom-1/4 right-1/4 text-[8px] font-mono text-gray-600">GATE D</span>
-                    </div>
-
-                    {/* HUD / Overlay for zoom/pan states */}
-                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur border border-white/10 rounded px-2 py-0.5 text-[8px] font-mono text-purple-300 pointer-events-none select-none">
-                      Zoom: {currentZoom.toFixed(2)}x | Pan: ({Math.round(currentPan.x)}, {Math.round(currentPan.y)})
-                    </div>
-                  </div>
-
-                  {/* Manual GSAP Controls Bar */}
-                  <div className="flex flex-wrap gap-1.5 justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-900 w-full">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentZoom(z => Math.min(3, z + 0.2))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-purple-500/50 text-[10px] px-2 py-1 rounded text-white font-mono transition-all flex items-center gap-1"
-                      title="Zoom In"
-                    >
-                      ➕ In
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentZoom(z => Math.max(1, z - 0.2))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-purple-500/50 text-[10px] px-2 py-1 rounded text-white font-mono transition-all flex items-center gap-1"
-                      title="Zoom Out"
-                    >
-                      ➖ Out
-                    </button>
-                    <div className="h-4 w-[1px] bg-gray-800 self-center" />
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPan(p => ({ ...p, y: p.y + 20 }))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all"
-                      title="Pan Up"
-                    >
-                      ⬆️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPan(p => ({ ...p, y: p.y - 20 }))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all"
-                      title="Pan Down"
-                    >
-                      ⬇️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPan(p => ({ ...p, x: p.x + 20 }))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all"
-                      title="Pan Left"
-                    >
-                      ⬅️
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPan(p => ({ ...p, x: p.x - 20 }))}
-                      className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all"
-                      title="Pan Right"
-                    >
-                      ➡️
-                    </button>
-                    <div className="h-4 w-[1px] bg-gray-800 self-center" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentZoom(1);
-                        setCurrentPan({ x: 0, y: 0 });
-                      }}
-                      className="bg-purple-900/40 hover:bg-purple-900/60 border border-purple-800/50 text-[10px] px-2 py-1 rounded text-purple-200 font-mono transition-all"
-                      title="Reset Map"
-                    >
-                      🔄 Reset
-                    </button>
-                  </div>
-                </div>
-
-                <div className="md:col-span-5 space-y-4 text-xs font-mono">
-                  <div className="bg-gray-900/40 p-3.5 rounded-xl border border-gray-900 space-y-2">
-                    <span className="text-[9px] text-gray-500 uppercase block tracking-wider">Active Seat Selection</span>
-                    <div className="text-sm font-bold text-white font-sans">{fanSeat}</div>
-                    <div className="text-[10px] text-purple-400 font-medium">Ticket Class: {ticketType || "VIP Club Admission"}</div>
-                  </div>
-
-                  <div className="bg-gray-900/40 p-3 rounded-xl border border-gray-900 space-y-2">
-                    <span className="text-[9px] text-gray-500 uppercase block tracking-wider">Select Seating Sector</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { name: "SEC 105 (North)", seat: "Section 105, Row E, Seat 12" },
-                        { name: "SEC 114 (East)", seat: "Section 114, Row M, Seat 8" },
-                        { name: "SEC 130 (South)", seat: "Section 130, Row A, Seat 4" },
-                        { name: "SEC 140 (West)", seat: "Section 140, Row K, Seat 18" },
-                      ].map((sec) => (
-                        <button
-                          key={sec.name}
-                          type="button"
-                          onClick={() => setFanSeat(sec.seat)}
-                          className={`py-2 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
-                            fanSeat === sec.seat
-                              ? "bg-purple-600 text-white border-purple-400 shadow-md"
-                              : "bg-gray-950 text-gray-400 border-gray-900 hover:bg-gray-900"
-                          }`}
-                        >
-                          {sec.name.split(" ")[1]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-900/40 p-3.5 rounded-xl border border-gray-900 space-y-2.5 leading-relaxed text-[11px] text-gray-300">
-                    <span className="text-[10px] text-cyan-400 font-bold block tracking-wider uppercase">✦ Seating Amenities</span>
-                    <ul className="space-y-1.5 text-gray-400 text-[10px]">
-                      {currentMatch.stadium.includes("MetLife") ? (
-                        <>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🍔 MetLife Grill (Gate A)</span> <span className="text-green-400">Low wait (2m)</span></li>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🥤 Pepsi Club Lounge (Gate B)</span> <span className="text-green-400">Normal (4m)</span></li>
-                          <li className="flex justify-between items-center"><span>👕 FIFA Fan Megastore (Gate C)</span> <span className="text-amber-400">Crowded (12m)</span></li>
-                        </>
-                      ) : currentMatch.stadium.includes("Azteca") ? (
-                        <>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🌮 Azteca Cantina (Gate B)</span> <span className="text-green-400">Low wait (3m)</span></li>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🥤 Corona VIP Pavilion (Gate A)</span> <span className="text-green-400">Normal (5m)</span></li>
-                          <li className="flex justify-between items-center"><span>👕 Azteca Merchandise (Gate C)</span> <span className="text-amber-400">Crowded (15m)</span></li>
-                        </>
-                      ) : (
-                        <>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🍔 BC Pavilion Foods (Gate D)</span> <span className="text-green-400">Low wait (1m)</span></li>
-                          <li className="flex justify-between items-center border-b border-gray-900/40 pb-1"><span>🥤 Granville Island Bar (Gate C)</span> <span className="text-green-400">Normal (3m)</span></li>
-                          <li className="flex justify-between items-center"><span>👕 Vancouver Fan Store (Gate B)</span> <span className="text-amber-400">Crowded (9m)</span></li>
-                        </>
-                      )}
-                    </ul>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowSeatMapModal(false)}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl text-xs py-2 px-4 transition-all shadow"
-                  >
-                    Bind to Ticket & Confirm
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Seat Map Navigation Modal moved to top level */}
 
       {/* Offline Emergency Suite & PWA Hub Modal */}
       <AnimatePresence>
@@ -2369,12 +2251,397 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Footer copyright */}
-      <footer className="border-t border-gray-900 bg-gray-950/80 p-4 text-center text-[10px] text-gray-500 font-mono mt-auto">
-        WorldPulse AI is an experimental operations & fan management platform for the FIFA World Cup
-        2026. Made with Google Cloud, Gemini Pro & Antigravity.
-      </footer>
-    </div>
+          {/* Footer copyright */}
+          <footer className="border-t border-gray-900 bg-gray-950/80 p-4 text-center text-[10px] text-gray-500 font-mono mt-auto">
+            Made by Suraj
+          </footer>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* Holographic Seat Navigation Console - Rendered at root level to completely bypass parent scale/will-change positioning bugs */}
+    <AnimatePresence>
+      {showSeatMapModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-black/95 backdrop-blur-xl overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="w-full max-w-5xl bg-gradient-to-b from-gray-950 via-slate-950 to-purple-950/40 border border-purple-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_60px_rgba(168,85,247,0.15)] relative max-h-[92vh] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-900/60"
+          >
+            {/* Top Scanning Line */}
+            <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-purple-500 to-transparent shadow-[0_0_15px_rgba(168,85,247,0.8)]" />
+
+            {/* Top Header Controls Bar */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center border-b border-gray-900 pb-5 mb-6">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSeatMapModal(false)}
+                  className="px-3 py-1.5 bg-purple-950/50 hover:bg-purple-900/40 border border-purple-500/30 hover:border-purple-500/60 text-purple-300 font-mono text-[10px] rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer uppercase select-none"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-purple-400" />
+                  Return to Panel
+                </button>
+                <div className="h-5 w-[1px] bg-gray-800 hidden sm:block" />
+                <div>
+                  <h3 className="font-display font-extrabold text-sm md:text-base text-white tracking-tight uppercase flex items-center gap-2">
+                    <Compass className="w-5 h-5 text-purple-400 animate-spin" style={{ animationDuration: "12s" }} />
+                    Holographic Seat Locator
+                  </h3>
+                  <span className="text-[9px] text-purple-400/80 font-mono tracking-widest uppercase block mt-0.5">
+                    WORLD-PULSE AI // STADIUM INDOOR TELEMETRY
+                  </span>
+                </div>
+              </div>
+
+              {/* System Stats HUD */}
+              <div className="flex items-center gap-4 text-[9px] font-mono text-gray-500 bg-black/40 border border-gray-900 px-3.5 py-1.5 rounded-xl">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-gray-400">GPS ACCURACY: ±0.3m</span>
+                </div>
+                <div className="hidden md:block h-3 w-[1px] bg-gray-800" />
+                <div className="hidden md:flex items-center gap-1.5">
+                  <span className="text-gray-400">SAT FEED: LIVE_GRID_3</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+              Explore dynamic seating sectors across the arena. Select sectors to automatically focus the high-precision telemetry map, compute optimal entry corridors, queue metrics, and access offline concourse navigation.
+            </p>
+
+            {/* Two-Column Responsive Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* LEFT COLUMN: Map Viewport & Controls */}
+              <div className="lg:col-span-6 flex flex-col items-center gap-4 bg-black/40 p-4 rounded-2xl border border-gray-900/60">
+                <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider self-start flex justify-between w-full">
+                  <span>Interactive Map Canvas</span>
+                  <span className="text-purple-400">{currentMatch.stadiumFullName}</span>
+                </div>
+
+                {/* Viewport container */}
+                <div className="relative w-full max-w-[340px] aspect-square rounded-2xl border border-gray-800/80 bg-gradient-to-b from-gray-950 via-slate-950 to-gray-950 overflow-hidden shadow-inner flex items-center justify-center">
+                  
+                  {/* Grid Lines Overlay */}
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(147,51,234,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(147,51,234,0.03)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-950/20 via-transparent to-transparent pointer-events-none" />
+
+                  {/* Animated GSAP Canvas */}
+                  <div ref={mapCanvasRef} className="relative w-64 h-64 rounded-full border border-gray-800/30 flex items-center justify-center bg-transparent transition-all duration-300">
+                    {/* Inner pitch / field */}
+                    <div className="w-24 h-36 bg-green-950/40 border border-green-500/20 rounded flex items-center justify-center relative rotate-90 shadow-inner">
+                      <div className="w-full h-[1px] bg-green-500/20 absolute top-1/2" />
+                      <div className="w-8 h-8 rounded-full border border-green-500/20 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                      <span className="text-[7px] font-mono text-green-400 tracking-wider uppercase opacity-40">PITCH</span>
+                    </div>
+
+                    {/* Sectors Ring Indicators */}
+                    {/* North Sector (101-112) */}
+                    <div
+                      onClick={() => setFanSeat("Section 105, Row E, Seat 12")}
+                      className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow cursor-pointer border select-none ${fanSeat.includes("105") ? "bg-purple-600/90 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105" : "bg-gray-900/80 text-gray-400 border-gray-800/80 hover:border-purple-500/30"}`}
+                    >
+                      SEC 105 (North)
+                    </div>
+                    {/* East Sector (113-125) */}
+                    <div
+                      onClick={() => setFanSeat("Section 114, Row M, Seat 8")}
+                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow cursor-pointer border select-none ${fanSeat.includes("114") ? "bg-purple-600/90 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105" : "bg-gray-900/80 text-gray-400 border-gray-800/80 hover:border-purple-500/30"}`}
+                    >
+                      SEC 114 (East)
+                    </div>
+                    {/* South Sector (126-138) */}
+                    <div
+                      onClick={() => setFanSeat("Section 130, Row A, Seat 4")}
+                      className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow cursor-pointer border select-none ${fanSeat.includes("130") ? "bg-purple-600/90 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105" : "bg-gray-900/80 text-gray-400 border-gray-800/80 hover:border-purple-500/30"}`}
+                    >
+                      SEC 130 (South)
+                    </div>
+                    {/* West Sector (Other) */}
+                    <div
+                      onClick={() => setFanSeat("Section 140, Row K, Seat 18")}
+                      className={`absolute left-4 top-1/2 transform -translate-y-1/2 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold transition-all shadow cursor-pointer border select-none ${fanSeat.includes("140") ? "bg-purple-600/90 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-105" : "bg-gray-900/80 text-gray-400 border-gray-800/80 hover:border-purple-500/30"}`}
+                    >
+                      SEC 140 (West)
+                    </div>
+
+                    {/* Indicator labels */}
+                    <span className="absolute top-[32%] left-[30%] text-[8px] font-mono text-gray-600">GATE B</span>
+                    <span className="absolute top-[32%] right-[30%] text-[8px] font-mono text-gray-600">GATE A</span>
+                    <span className="absolute bottom-[32%] left-[30%] text-[8px] font-mono text-gray-600">GATE C</span>
+                    <span className="absolute bottom-[32%] right-[30%] text-[8px] font-mono text-gray-600">GATE D</span>
+                  </div>
+
+                  {/* HUD Overlay */}
+                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur border border-white/10 rounded px-2 py-0.5 text-[8px] font-mono text-purple-300 pointer-events-none select-none">
+                    Zoom: {currentZoom.toFixed(2)}x | Pan: ({Math.round(currentPan.x)}, {Math.round(currentPan.y)})
+                  </div>
+                </div>
+
+                {/* GSAP Controls Console */}
+                <div className="flex flex-wrap gap-1.5 justify-center bg-gray-950/80 p-2 rounded-xl border border-gray-900/80 w-full max-w-[340px]">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentZoom(z => Math.min(3, z + 0.2))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] px-2 py-1 rounded text-white font-mono transition-all flex items-center gap-0.5 cursor-pointer"
+                    title="Zoom In"
+                  >
+                    ➕ In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentZoom(z => Math.max(1, z - 0.2))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] px-2 py-1 rounded text-white font-mono transition-all flex items-center gap-0.5 cursor-pointer"
+                    title="Zoom Out"
+                  >
+                    ➖ Out
+                  </button>
+                  <div className="h-4 w-[1px] bg-gray-800 self-center" />
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPan(p => ({ ...p, y: p.y + 20 }))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all cursor-pointer"
+                    title="Pan Up"
+                  >
+                    ⬆️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPan(p => ({ ...p, y: p.y - 20 }))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all cursor-pointer"
+                    title="Pan Down"
+                  >
+                    ⬇️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPan(p => ({ ...p, x: p.x + 20 }))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all cursor-pointer"
+                    title="Pan Left"
+                  >
+                    ⬅️
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPan(p => ({ ...p, x: p.x - 20 }))}
+                    className="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-[10px] p-1 rounded text-white transition-all cursor-pointer"
+                    title="Pan Right"
+                  >
+                    ➡️
+                  </button>
+                  <div className="h-4 w-[1px] bg-gray-800 self-center" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentZoom(1);
+                      setCurrentPan({ x: 0, y: 0 });
+                    }}
+                    className="bg-purple-900/40 hover:bg-purple-900/60 border border-purple-800/50 text-[10px] px-2 py-1 rounded text-purple-200 font-mono transition-all cursor-pointer"
+                    title="Reset Map"
+                  >
+                    🔄 Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Interactive Telemetry, Recommended Gates, & AI Concourse Routing */}
+              <div className="lg:col-span-6 space-y-5 font-mono text-xs">
+                
+                {/* Section selection header */}
+                <div className="bg-gray-900/40 p-4 rounded-2xl border border-gray-900/80 space-y-2.5">
+                  <span className="text-[9px] text-gray-500 uppercase block tracking-wider">Seated Telemetry Record</span>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-bold text-white font-sans">{fanSeat}</div>
+                      <div className="text-[10px] text-purple-400 font-medium">Ticket Class: {ticketType || "General Admission"}</div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-purple-900/20 border border-purple-500/20 text-purple-300 font-semibold rounded text-[9px]">
+                      CONFIRMED SEAT
+                    </span>
+                  </div>
+
+                  {/* Manual selector grid */}
+                  <div className="pt-2 border-t border-gray-900">
+                    <span className="text-[9px] text-gray-500 uppercase block mb-2">Switch Seating Zone</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { name: "North Ring", seat: "Section 105, Row E, Seat 12" },
+                        { name: "East Ring", seat: "Section 114, Row M, Seat 8" },
+                        { name: "South Ring", seat: "Section 130, Row A, Seat 4" },
+                        { name: "West Ring", seat: "Section 140, Row K, Seat 18" },
+                      ].map((sec) => (
+                        <button
+                          key={sec.name}
+                          type="button"
+                          onClick={() => setFanSeat(sec.seat)}
+                          className={`py-1.5 px-1 rounded-lg text-[9px] font-mono font-bold transition-all border text-center cursor-pointer ${
+                            fanSeat === sec.seat
+                              ? "bg-purple-600 text-white border-purple-400 shadow-md animate-pulse"
+                              : "bg-gray-950 text-gray-400 border-gray-900 hover:bg-gray-900"
+                          }`}
+                        >
+                          {sec.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Recommended Entry Gate Telemetry */}
+                <div className="bg-gray-900/40 p-4 rounded-2xl border border-gray-900/80 space-y-3">
+                  <span className="text-[9px] text-gray-500 uppercase block tracking-wider">Entry Routing Telemetry</span>
+                  
+                  {(() => {
+                    const rec = getRecommendedGate(fanSeat, stadiumState.gates);
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-gray-950/70 p-3 rounded-xl border border-gray-900">
+                          <div>
+                            <span className="text-[8px] text-gray-500 block uppercase">SUGGESTED CORRIDOR</span>
+                            <span className="text-white font-bold font-sans text-sm">{rec.bestGate.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[8px] text-gray-500 block uppercase">QUEUE WAIT TIME</span>
+                            <span className={`font-bold font-mono text-sm ${rec.bestGate.waitTime > 12 ? "text-amber-400 animate-pulse" : "text-green-400"}`}>
+                              {rec.bestGate.waitTime} mins
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Rerouted info alert */}
+                        <div className={`p-2.5 rounded-xl text-[10px] leading-relaxed border ${
+                          rec.isRerouted 
+                            ? "bg-amber-950/20 border-amber-500/30 text-amber-300"
+                            : "bg-purple-950/10 border-purple-900/30 text-purple-300"
+                        }`}>
+                          <strong className="block mb-0.5 uppercase tracking-wide text-white">
+                            {rec.isRerouted ? "⚡ Optimized Re-route Applied:" : "✓ optimal corridor:"}
+                          </strong>
+                          {rec.reason}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* AI Concourse Wayfinding Instructions */}
+                <div className="bg-gradient-to-br from-gray-950/80 to-purple-950/20 p-4 rounded-2xl border border-purple-500/10 space-y-3">
+                  <span className="text-[9px] text-cyan-400 font-extrabold uppercase tracking-widest block">
+                    ✦ AI Concourse Wayfinding Navigation
+                  </span>
+                  
+                  {(() => {
+                    const getAIConcourseRoute = (seat: string) => {
+                      if (seat.includes("105")) {
+                        return {
+                          gate: "Gate B (North Entry Lobby)",
+                          steps: [
+                            "Enter through Gate B — optimal turnstile wait time (under 2m).",
+                            "Ascend to Concourse level via Sector 100 North ramp.",
+                            "Follow green glow floor striping directly to Section 105.",
+                            "Identify Entry Portal 3B — Seat is located at row E, seat 12."
+                          ]
+                        };
+                      } else if (seat.includes("114")) {
+                        return {
+                          gate: "Gate A (East Entry Lobby)",
+                          steps: [
+                            "Enter through Gate A — optimal turnstile wait time (under 4m).",
+                            "Proceed right along the Main East Concourse ring loop.",
+                            "Navigate past the Azteca Tacos station to Section 114.",
+                            "Identify Entry Portal 5 — Seat is located at row M, seat 8."
+                          ]
+                        };
+                      } else if (seat.includes("130")) {
+                        return {
+                          gate: "Gate D (South Entry Lobby)",
+                          steps: [
+                            "Enter through Gate D — optimal turnstile wait time (under 1m).",
+                            "Turn left at the South Concourse concession corridor.",
+                            "Follow purple digital guidance markers to Section 130.",
+                            "Identify Entry Portal 1 — Seat is located at row A, seat 4."
+                          ]
+                        };
+                      } else {
+                        return {
+                          gate: "Gate C (West Entry Lobby)",
+                          steps: [
+                            "Enter through Gate C — optimal turnstile wait time (under 3m).",
+                            "Ascend West Escalators directly to the 100 level concourse.",
+                            "Proceed past the FIFA Fan Megastore to Section 140.",
+                            "Identify Entry Portal 2W — Seat is located at row K, seat 18."
+                          ]
+                        };
+                      }
+                    };
+
+                    const routing = getAIConcourseRoute(fanSeat);
+                    return (
+                      <div className="space-y-2.5">
+                        <div className="text-[10px] text-gray-400 italic">
+                          Calculated route starting at <span className="text-white font-semibold">{routing.gate}</span>:
+                        </div>
+                        <div className="space-y-2">
+                          {routing.steps.map((step, idx) => (
+                            <div key={step} className="flex gap-2.5 items-start text-[11px] text-gray-300">
+                              <span className="w-5 h-5 rounded-full bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="leading-relaxed">{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Nearby Seating Amenities & Concourse Wait Times */}
+                <div className="bg-gray-900/40 p-4 rounded-2xl border border-gray-900/80 space-y-2.5">
+                  <span className="text-[9px] text-gray-500 uppercase block tracking-wider">Nearby Concourse Amenities</span>
+                  <ul className="space-y-2 text-[10px]">
+                    {currentMatch.stadium.includes("MetLife") ? (
+                      <>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🍔 MetLife Grill (Gate A area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Low wait (2m)</span></li>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🥤 Pepsi Club Lounge (Gate B area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Normal (4m)</span></li>
+                        <li className="flex justify-between items-center"><span>👕 FIFA Fan Megastore (Gate C area)</span> <span className="text-amber-400 font-bold bg-amber-950/40 px-1.5 py-0.5 rounded">Crowded (12m)</span></li>
+                      </>
+                    ) : currentMatch.stadium.includes("Azteca") ? (
+                      <>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🌮 Azteca Cantina (Gate B area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Low wait (3m)</span></li>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🥤 Corona VIP Pavilion (Gate A area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Normal (5m)</span></li>
+                        <li className="flex justify-between items-center"><span>👕 Azteca Merchandise (Gate C area)</span> <span className="text-amber-400 font-bold bg-amber-950/40 px-1.5 py-0.5 rounded">Crowded (15m)</span></li>
+                      </>
+                    ) : (
+                      <>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🍔 BC Pavilion Foods (Gate D area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Low wait (1m)</span></li>
+                        <li className="flex justify-between items-center border-b border-gray-900/40 pb-1.5"><span>🥤 Granville Island Bar (Gate C area)</span> <span className="text-green-400 font-bold bg-green-950/40 px-1.5 py-0.5 rounded">Normal (3m)</span></li>
+                        <li className="flex justify-between items-center"><span>👕 Vancouver Fan Store (Gate B area)</span> <span className="text-amber-400 font-bold bg-amber-950/40 px-1.5 py-0.5 rounded">Crowded (9m)</span></li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Footer confirmation button */}
+                <button
+                  type="button"
+                  onClick={() => setShowSeatMapModal(false)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-2xl text-xs py-3 px-4 transition-all shadow-[0_4px_15px_rgba(147,51,234,0.3)] hover:shadow-[0_4px_25px_rgba(147,51,234,0.5)] cursor-pointer text-center uppercase"
+                >
+                  Bind to Ticket & Confirm Seating
+                </button>
+              </div>
+
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 

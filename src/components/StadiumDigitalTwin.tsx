@@ -145,14 +145,19 @@ export default function StadiumDigitalTwin({
         const px = p.x * scaleX;
         const py = p.y * scaleY;
 
+        // Fast glow: draw outer translucent halo
+        ctx.beginPath();
+        ctx.arc(px, py, p.size * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha * 0.15;
+        ctx.fill();
+
+        // Core: draw sharp inner point
         ctx.beginPath();
         ctx.arc(px, py, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.alpha;
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = p.color;
         ctx.fill();
-        ctx.shadowBlur = 0; // reset
 
         // Move particle
         if (stadiumState.evacuationSimulating) {
