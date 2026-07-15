@@ -1,16 +1,16 @@
-# 🏆 WorldPulse AI — FIFA World Cup 2026 Stadium Intelligence Ecosystem
+# 🏆 WorldPulse AI — FIFA World Cup 2026 Connected Stadium Intelligence Ecosystem
 
-WorldPulse AI is a next-generation GenAI-powered stadium intelligence ecosystem designed for the FIFA World Cup 2026. It combines real-time digital twin simulations, operational KPIs, multi-role dashboards, interactive maps, dynamic transit intelligence, and the **FIFA Copilot** powered by Google Gemini.
+WorldPulse AI is a next-generation, full-stack, GenAI-powered stadium intelligence ecosystem designed for the **FIFA World Cup 2026**. It brings together real-time digital twin simulations, operational KPIs, multi-role dashboards, interactive maps, dynamic transit intelligence, and the **FIFA Copilot Voice Dispatcher** powered by Gemini.
 
-Designed for stadium operations teams, security commanders, transit scouts, and fans, WorldPulse AI bridges the gap between physical stadium operations and digital intelligence.
+Bridging the gap between physical stadium operations and digital intelligence, WorldPulse AI enables stadium operations teams, security commanders, transit scouts, and fans to interact with live stadium telemetry in real-time.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Modules & Features
 
 ### 1. 🏟️ Stadium Digital Twin (`StadiumDigitalTwin`)
 - **3D-like Interactive Visualization**: Real-time rendering of stadium seating, fields, zones, and security perimeter lines.
-- **Dynamic Seating Capacity Tracking**: Real-time monitoring of crowd density, VIP areas, active exits, and gate occupancy.
+- **Dynamic Seating & Density Tracking**: Real-time monitoring of crowd density, VIP areas, active exits, and gate occupancy.
 - **Sensor Overlays**: Visual heatmaps highlighting crowd heat, noise levels, and gate flow metrics.
 
 ### 2. 🗺️ Stadium Intelligence Map (`StadiumIntelligenceMap`)
@@ -18,22 +18,24 @@ Designed for stadium operations teams, security commanders, transit scouts, and 
 - **Dynamic Zone Security Control**: Toggle views for Crowd Heatmaps, Transit Shuttles, and Security Patrol Routes.
 - **Mock GPS Simulation**: Interactive navigation guides for operational teams.
 
-### 3. 🤖 FIFA Copilot (`CopilotPanel`)
-- **Gemini-Powered AI Assistant**: Built using the `@google/genai` SDK to handle complex operations queries, incident triaging, and real-time situational assistance.
+### 3. 🤖 FIFA Copilot AI Assistant (`CopilotPanel`)
+- **Gemini-Powered Operations Companion**: Built using the `@google/genai` SDK to handle complex operations queries, incident triaging, and real-time situational assistance.
 - **Context-Aware Assistance**: Automatically fetches live stadium KPIs and sensor metrics to answer coordinator queries with precision.
 
-### 4. 🚨 Incident Command Center (`IncidentCommand`)
+### 4. 🎙️ FIFA Copilot Voice Dispatcher (`LiveWalkieTalkie`)
+- **Ultra-Low Latency Multilingual Voice**: Real-time bidirectional voice stream supporting **English, Hindi, Bengali, Spanish, French, and Arabic**.
+- **Gapless 16kHz/24kHz Audio Pipeline**: Captures user microphone input at 16kHz PCM, streams it over WebSockets to the backend, and schedules 24kHz audio buffers dynamically for zero-jitter, fluid playback.
+- **Real-Time Voice Interruption**: Stop the AI's response at any moment just by speaking or tapping the mic, allowing natural verbal conversation.
+- **Live Visualizer**: Real-time RMS audio wave visuals for input and output audio channels.
+
+### 5. 🚨 Incident Command Center (`IncidentCommand`)
 - **Real-Time Incident Logger**: Track critical safety events (e.g., medical emergency, ticketing issues, security alarms) live.
 - **Visual Heatmap & Priority Triage**: Incidents are mapped onto zones with dynamic severity levels (Critical, High, Medium, Low).
 - **Direct Dispatch controls**: Instantly dispatch emergency units (Security, Medical, Fire) directly from the command view.
 
-### 5. 🚌 Transit Scout (`TransitScout`)
+### 6. 🚌 Transit Scout (`TransitScout`)
 - **Dynamic Shuttle Tracking**: Real-time monitoring of stadium shuttles, passenger wait times, and shuttle statuses.
 - **Interactive Map Layers**: Shows exact vehicle positions, congestion levels, and estimated time of arrivals (ETAs) to nearby transit hubs.
-
-### 6. 🎙️ Live Walkie-Talkie (`LiveWalkieTalkie`)
-- **Audio Simulation Engine**: Simulates tactical radio channels (Operations, Security, Logistics) with status tones, realistic static, and push-to-talk (PTT) capabilities.
-- **Direct Recording**: Supports interactive audio tests with direct microphone usage and signal quality analyzers.
 
 ### 7. 📸 Fan Photo Booth (`PhotoBooth`)
 - **Interactive Fan Engagement**: Fans can select premium customized templates, filters, and overlays tailored for the FIFA World Cup 2026.
@@ -51,13 +53,13 @@ Designed for stadium operations teams, security commanders, transit scouts, and 
 
 ## 🛠️ Tech Stack
 
-- **Frontend Framework**: [React 18](https://reactjs.org/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Frontend**: [React 18](https://reactjs.org/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Animations**: [Framer Motion](https://www.framer.com/motion/) (`motion/react`)
 - **Icons**: [Lucide React](https://lucide.dev/)
-- **Backend Service**: [Express.js](https://expressjs.com/) (REST APIs, Static Asset Hosting, Vite Middleware in Dev)
+- **Backend Server**: [Express.js](https://expressjs.com/) (REST APIs, Static Asset Hosting, Vite Middleware in Dev)
 - **Database & Auth**: [Firebase](https://firebase.google.com/) (Authentication & Firestore)
-- **AI Core**: `@google/genai` (Google Gemini API)
+- **AI Core**: `@google/genai` (Google Gemini API & Gemini Live bidirectional WebSockets)
 
 ---
 
@@ -69,7 +71,7 @@ Designed for stadium operations teams, security commanders, transit scouts, and 
 │   ├── icon.svg            # Custom Vector App Icon
 │   ├── sw.js               # Service Worker for PWA / offline support
 │   └── manifest.json       # Web Manifest for mobile installation
-├── server.ts               # Production-ready full-stack Express server
+├── server.ts               # Production-ready full-stack Express server with Live WS Bridge
 ├── src/
 │   ├── App.tsx             # Main routing, state, and dashboard views
 │   ├── index.css           # Global styles and Tailwind configuration
@@ -79,7 +81,7 @@ Designed for stadium operations teams, security commanders, transit scouts, and 
 │   │   ├── CopilotPanel.tsx                 # AI Assistant using Gemini API
 │   │   ├── FirebaseUserProfile.tsx          # User login & database syncing
 │   │   ├── IncidentCommand.tsx              # Command room operations & alerts
-│   │   ├── LiveWalkieTalkie.tsx             # Audio radio control simulation
+│   │   ├── LiveWalkieTalkie.tsx             # Real-time WebRTC/WS Voice Dispatcher
 │   │   ├── PhotoBooth.tsx                   # Interactive photography module
 │   │   ├── StadiumDigitalTwin.tsx           # Interactive 3D/2D stadium viewport
 │   │   ├── StadiumIntelligenceDashboard.tsx # Executive real-time KPI overview
@@ -144,9 +146,6 @@ When hosting on platforms like **Google Cloud Run**, **Render**, or **Heroku**:
 - The compiled CJS Express server (`dist/server.cjs`) binds to host `0.0.0.0` and port `3000` automatically to support containerized hosting perfectly.
 
 ---
-
-## 🤝 Contributing
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/YOUR_USERNAME/worldpulse-ai/issues).
 
 ## 📄 License
 This project is licensed under the MIT License.
