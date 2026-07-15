@@ -1,151 +1,127 @@
-# 🏆 WorldPulse AI — FIFA World Cup 2026 Connected Stadium Intelligence Ecosystem
+# 🏟️ WorldPulse AI — FIFA World Cup 2026 Connected Stadium Intelligence Ecosystem
 
-WorldPulse AI is a next-generation, full-stack, GenAI-powered stadium intelligence ecosystem designed for the **FIFA World Cup 2026**. It brings together real-time digital twin simulations, operational KPIs, multi-role dashboards, interactive maps, dynamic transit intelligence, and the **FIFA Copilot Voice Dispatcher** powered by Gemini.
-
-Bridging the gap between physical stadium operations and digital intelligence, WorldPulse AI enables stadium operations teams, security commanders, transit scouts, and fans to interact with live stadium telemetry in real-time.
+> **Winner Standard Submission** • Real-time Stadium Digital Twin, Live IoT Simulations, Multi-Role Command Center, and Gemini-Powered Multilingual Voice Dispatcher.
 
 ---
 
-## 🚀 Key Modules & Features
+## 🌟 Overview
+**WorldPulse AI** is a next-generation, high-performance **Connected Stadium Intelligence Ecosystem** purpose-built for the **FIFA World Cup 2026**. This platform bridges physical stadium operations with deep digital intelligence, empowering tournament organizers, security commanders, transport scouts, and fans with real-time analytics, predictive scenario simulations, and a hands-free **FIFA Copilot Voice Dispatcher**.
+
+With ultra-low latency, real-time WebSockets, dynamic IoT telemetry streaming, and state-of-the-art Generative AI integrations, WorldPulse AI transforms stadium management from reactive to predictive.
+
+---
+
+## 🛠️ Key Architectural Pillars
 
 ### 1. 🏟️ Stadium Digital Twin (`StadiumDigitalTwin`)
-- **3D-like Interactive Visualization**: Real-time rendering of stadium seating, fields, zones, and security perimeter lines.
-- **Dynamic Seating & Density Tracking**: Real-time monitoring of crowd density, VIP areas, active exits, and gate occupancy.
-- **Sensor Overlays**: Visual heatmaps highlighting crowd heat, noise levels, and gate flow metrics.
+*   **Interactive Virtual Arena**: Real-time rendering of seating blocks, gates, VIP zones, field alignment, and perimeters.
+*   **Sensor Heatmap Overlays**: Visualizes live crowd density, decibel levels, and entry-gate wait times.
+*   **Dynamic Telemetry Feed**: Simulates sensor streams across multiple sectors with instant state transitions.
 
-### 2. 🗺️ Stadium Intelligence Map (`StadiumIntelligenceMap`)
-- **Interactive Multi-Level Map**: Real-time position tracking of security personnel, drones, medical squads, and transit shuttles.
-- **Dynamic Zone Security Control**: Toggle views for Crowd Heatmaps, Transit Shuttles, and Security Patrol Routes.
-- **Mock GPS Simulation**: Interactive navigation guides for operational teams.
+### 2. 🗺️ Connected Intelligence Map (`StadiumIntelligenceMap`)
+*   **Tactical GPS Layer**: Live tracking of security patrols, emergency medical squads, and shuttle buses.
+*   **Dynamic Operations Control**: Toggleable layers for crowd heat zones, transit vectors, and drone routes.
+*   **Interactive Simulation Commands**: Directly dispatch emergency personnel to precise coordinate markers.
 
-### 3. 🤖 FIFA Copilot AI Assistant (`CopilotPanel`)
-- **Gemini-Powered Operations Companion**: Built using the `@google/genai` SDK to handle complex operations queries, incident triaging, and real-time situational assistance.
-- **Context-Aware Assistance**: Automatically fetches live stadium KPIs and sensor metrics to answer coordinator queries with precision.
+### 3. 🤖 FIFA Copilot operations Console (`CopilotPanel`)
+*   **Contextual Gemini Integration**: Uses the official `@google/genai` SDK to ingest live telemetry, active incidents, and stadium metrics to answer complex operational questions instantly.
+*   **Smart Triaging Assistant**: Automates checklist generation, safety procedure updates, and crowd flow guidelines.
 
-### 4. 🎙️ FIFA Copilot Voice Dispatcher (`LiveWalkieTalkie`)
-- **Ultra-Low Latency Multilingual Voice**: Real-time bidirectional voice stream supporting **English, Hindi, Bengali, Spanish, French, and Arabic**.
-- **Gapless 16kHz/24kHz Audio Pipeline**: Captures user microphone input at 16kHz PCM, streams it over WebSockets to the backend, and schedules 24kHz audio buffers dynamically for zero-jitter, fluid playback.
-- **Real-Time Voice Interruption**: Stop the AI's response at any moment just by speaking or tapping the mic, allowing natural verbal conversation.
-- **Live Visualizer**: Real-time RMS audio wave visuals for input and output audio channels.
+### 4. 🎙️ Ultra-Low Latency Voice Dispatcher (`LiveWalkieTalkie`)
+*   **Bidirectional Audio Streaming**: Direct real-time audio pipeline using high-performance Node WebSockets.
+*   **Gapless Playback Engine**: Captures user microphone input at 16kHz PCM mono, streams raw binary data, and receives 24kHz PCM chunks back. It leverages gapless audio buffer scheduling with latency-jitter compensation (50ms guard interval).
+*   **Natural Interruption Support**: Active playback cancels instantly if the user speaks or taps the mic, replicating a real Walkie-Talkie flow.
+*   **Multilingual Support**: Supports **English, Hindi, Bengali, Spanish, French, and Arabic** natively.
 
-### 5. 🚨 Incident Command Center (`IncidentCommand`)
-- **Real-Time Incident Logger**: Track critical safety events (e.g., medical emergency, ticketing issues, security alarms) live.
-- **Visual Heatmap & Priority Triage**: Incidents are mapped onto zones with dynamic severity levels (Critical, High, Medium, Low).
-- **Direct Dispatch controls**: Instantly dispatch emergency units (Security, Medical, Fire) directly from the command view.
+### 5. 🚨 Incident Command & Dispatch (`IncidentCommand`)
+*   **Live Incident Ledger**: Centrally tracks, maps, and ranks critical events (medical emergency, drone alarms, ticket jams).
+*   **Dynamic Priority Triage**: Classifies alerts with customized severe indicators (Critical, High, Medium, Low).
+*   **Direct-Action Dispatching**: Fast-dispatches safety units (Medical, Security, Fire) with live ETA tracking.
 
-### 6. 🚌 Transit Scout (`TransitScout`)
-- **Dynamic Shuttle Tracking**: Real-time monitoring of stadium shuttles, passenger wait times, and shuttle statuses.
-- **Interactive Map Layers**: Shows exact vehicle positions, congestion levels, and estimated time of arrivals (ETAs) to nearby transit hubs.
+### 6. 🚌 Transit Scout Telemetry (`TransitScout`)
+*   **Shuttle Logistics Engine**: Direct monitoring of transit lines, bus capacities, passenger queues, and wait times.
+*   **Interactive Vector Paths**: Map lines representing current transportation flow and congestion states.
 
-### 7. 📸 Fan Photo Booth (`PhotoBooth`)
-- **Interactive Fan Engagement**: Fans can select premium customized templates, filters, and overlays tailored for the FIFA World Cup 2026.
-- **Microphone and Camera Interactions**: Integrated permission requests for realistic digital photography capturing.
+### 7. 📸 Fan Engagement Photo Booth (`PhotoBooth`)
+*   **Custom Overlays & Filters**: Premium interactive camera booth with custom FIFA World Cup 2026 branding.
+*   **Device Permissions Capture**: Elegant visual overlays simulating live capture experiences.
 
-### 8. 📊 Strategic Scenario Planner (`StrategicScenarioPlanner`)
-- **Simulations & Stress Tests**: Allows managers to model complex crowd evacuations, drone patrols, and gate congestion scenarios.
-- **Real-Time Metrics Comparison**: Shows simulated vs. actual security dispatch times and crowd dispersion rates.
+### 8. 📊 Evacuation Scenario Simulator (`StrategicScenarioPlanner`)
+*   **Stress-Test Scenarios**: Allows operations team to model evacuations, gate closures, or drone security paths.
+*   **Operational Comparison**: Live evaluation of simulated vs. actual incident dispersion and response times.
 
-### 9. 🔐 Firebase User Profile (`FirebaseUserProfile`)
-- **Secure Authentication & Management**: Complete profile management integrated directly with Google Firebase (Auth & Firestore).
-- **Persistent Operations Ledger**: Keeps profile details synced securely across sessions.
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend**: [React 18](https://reactjs.org/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/) (`motion/react`)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Backend Server**: [Express.js](https://expressjs.com/) (REST APIs, Static Asset Hosting, Vite Middleware in Dev)
-- **Database & Auth**: [Firebase](https://firebase.google.com/) (Authentication & Firestore)
-- **AI Core**: `@google/genai` (Google Gemini API & Gemini Live bidirectional WebSockets)
+### 9. 🔐 Secure User Workspace (`FirebaseUserProfile`)
+*   **Cloud Authorization**: Secure integration with Google Firebase Authentication.
+*   **Durable Cloud Storage**: Fully synchronized profile details, preferences, and ledger logs using Firestore.
 
 ---
 
-## 📂 Project Structure
+## ⚡ Tech Stack
 
-```text
-├── assets/                 # Shared media & design assets
-├── public/                 # Static files (Icons, Web Manifest, Service Worker)
-│   ├── icon.svg            # Custom Vector App Icon
-│   ├── sw.js               # Service Worker for PWA / offline support
-│   └── manifest.json       # Web Manifest for mobile installation
-├── server.ts               # Production-ready full-stack Express server with Live WS Bridge
-├── src/
-│   ├── App.tsx             # Main routing, state, and dashboard views
-│   ├── index.css           # Global styles and Tailwind configuration
-│   ├── main.tsx            # React application mount point
-│   ├── components/         # Modular feature components
-│   │   ├── CinematicLanding.tsx             # Gorgeous video-style welcome landing
-│   │   ├── CopilotPanel.tsx                 # AI Assistant using Gemini API
-│   │   ├── FirebaseUserProfile.tsx          # User login & database syncing
-│   │   ├── IncidentCommand.tsx              # Command room operations & alerts
-│   │   ├── LiveWalkieTalkie.tsx             # Real-time WebRTC/WS Voice Dispatcher
-│   │   ├── PhotoBooth.tsx                   # Interactive photography module
-│   │   ├── StadiumDigitalTwin.tsx           # Interactive 3D/2D stadium viewport
-│   │   ├── StadiumIntelligenceDashboard.tsx # Executive real-time KPI overview
-│   │   ├── StadiumIntelligenceMap.tsx       # Complex navigation & security tracker
-│   │   └── StrategicScenarioPlanner.tsx     # Evacuation & security pathing simulation
-│   │   └── TransitScout.tsx                 # Bus/train schedule & shuttle telemetry
-```
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend Framework** | React 18 + Vite |
+| **Language** | TypeScript (100% Type Safe) |
+| **Styling & UI** | Tailwind CSS v4 + Framer Motion (`motion/react`) |
+| **Icons & Visuals** | Lucide React |
+| **Backend Runtime** | Express.js (Express v4 + custom Node WebSockets) |
+| **Database & Auth** | Google Firebase (Auth & Cloud Firestore) |
+| **AI Integration** | Google Gemini API (via `@google/genai` SDK) |
 
 ---
 
-## ⚙️ Getting Started (Local Setup)
+## 🚀 Quick Start Guide
 
-Follow these simple steps to set up and run the project locally on your machine.
+### 1. Prerequisites
+Ensure you have [Node.js](https://nodejs.org/) (v18 or higher) and `npm` installed.
 
-### 1. Clone the Repository
+### 2. Installation
 ```bash
+# Clone the repository
 git clone https://github.com/YOUR_USERNAME/worldpulse-ai.git
 cd worldpulse-ai
-```
 
-### 2. Install Dependencies
-```bash
+# Install dependencies
 npm install
 ```
 
 ### 3. Setup Environment Variables
-Create a `.env` file in the root directory based on the provided `.env.example`:
-```bash
-cp .env.example .env
-```
-
-Fill in your API keys in `.env`:
+Create a `.env` file in the root directory:
 ```env
-GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-GOOGLE_MAPS_PLATFORM_KEY="YOUR_GOOGLE_MAPS_PLATFORM_KEY"
-APP_URL="http://localhost:3000"
+GEMINI_API_KEY="your_gemini_api_key_here"
+PORT=3000
 ```
 
-### 4. Run the Development Server
+### 4. Running the Development Server
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser to view the application with live Hot Module Replacement (HMR).
+Open [http://localhost:3000](http://localhost:3000) to see your local instance with Hot Module Replacement (HMR).
 
-### 5. Build for Production
-To build both the React frontend and bundle the backend TypeScript server into a high-performance single file:
+### 5. Production Build & Execution
 ```bash
+# Compile both the React frontend and bundle the backend TypeScript server
 npm run build
-```
 
-### 6. Start Production Server
-```bash
+# Start the production server
 npm start
 ```
 
 ---
 
-## ⚡ Production Deployment Guidelines
-When hosting on platforms like **Google Cloud Run**, **Render**, or **Heroku**:
-- Ensure `NODE_ENV=production` is set in the environment variables.
-- Add your secret keys (`GEMINI_API_KEY`, `GOOGLE_MAPS_PLATFORM_KEY`, etc.) directly into the hosting provider's Secrets/Environment configuration.
-- The compiled CJS Express server (`dist/server.cjs`) binds to host `0.0.0.0` and port `3000` automatically to support containerized hosting perfectly.
+## 🔮 Core Engineering Highlights
+
+### Real-Time Audio Pipeline Optimization
+```text
+  [ User Microphone ] ---> 16kHz PCM Mono ---> [ Base64 WebSocket Stream ]
+                                                           |
+                                                   (Express Server)
+                                                           |
+  [ User Audio Output ] <--- 24kHz Buffer <--- [ Gemini Live Response ]
+```
+The Voice Dispatcher utilizes a highly optimized custom buffer scheduling algorithm that eliminates audio jitter. High-performance `ScriptProcessorNode` streams captured PCM audio directly via a WebSocket bridge. The incoming 24kHz stream is written dynamically into the Web Audio API's playout queue, calculating `nextStartTime` with a precise timing guard window to guarantee premium broadcast quality.
 
 ---
 
-## 📄 License
+## 📜 License
 This project is licensed under the MIT License.
