@@ -7,106 +7,115 @@ import {
   ExitRoute
 } from "./scenarioHelpers";
 
-describe("Strategic Scenario Planner Helpers", () => {
-  describe("estimateEvacuationTime", () => {
-    it("should return 0 when occupancy is 0", () => {
-      const zone: EvacuationZone = {
-        id: "z1",
-        name: "North Terrace",
-        capacity: 5000,
-        currentOccupancy: 0,
-        flowRatePerMin: 100,
-        isBlocked: false
-      };
-      expect(estimateEvacuationTime(zone)).toBe(0);
+describe("Strategic Scenario Planner Helpers - Extended Matrix Suite", () => {
+  describe("estimateEvacuationTime (Exhaustive Capacity and Flow Grid)", () => {
+    // Generate 120 tests for evacuation estimation
+    const occupancies = [0, 50, 100, 250, 500, 1000, 2500, 5000];
+    const flowRates = [10, 50, 100, 250, 500];
+    const modifiers = [0.5, 1.0, 1.5];
+
+    occupancies.forEach(occ => {
+      flowRates.forEach(flow => {
+        modifiers.forEach(mod => {
+          it(`should calculate minutes correctly (occupancy:${occ}, flowRate:${flow}, modifier:${mod})`, () => {
+            const zone: EvacuationZone = {
+              id: `zone-${occ}-${flow}`,
+              name: `Gate Zone ${occ}`,
+              capacity: 10000,
+              currentOccupancy: occ,
+              flowRatePerMin: flow,
+              isBlocked: false
+            };
+            const time = estimateEvacuationTime(zone, mod);
+            if (occ <= 0) {
+              expect(time).toBe(0);
+            } else {
+              const realFlow = flow * mod;
+              const expectedTime = Math.ceil(occ / realFlow);
+              expect(time).toBe(expectedTime);
+            }
+          });
+        });
+      });
     });
 
-    it("should return 999 if zone is blocked", () => {
+    it("should return 999 immediately if the evacuation zone is blocked", () => {
       const zone: EvacuationZone = {
-        id: "z2",
-        name: "Gate B Stairwell",
-        capacity: 2000,
-        currentOccupancy: 800,
+        id: "blocked-z",
+        name: "Gate D Concourse",
+        capacity: 5000,
+        currentOccupancy: 1000,
         flowRatePerMin: 100,
         isBlocked: true
       };
       expect(estimateEvacuationTime(zone)).toBe(999);
     });
 
-    it("should calculate correct ceiling evacuation minutes normally", () => {
+    it("should handle division by zero flow rate gracefully by returning 999", () => {
       const zone: EvacuationZone = {
-        id: "z3",
-        name: "South Plaza Escalators",
-        capacity: 4000,
-        currentOccupancy: 850,
-        flowRatePerMin: 150,
+        id: "zero-flow-z",
+        name: "Dead Concourse",
+        capacity: 5000,
+        currentOccupancy: 1000,
+        flowRatePerMin: 0,
         isBlocked: false
       };
-      // 850 / 150 = 5.66 -> ceiling is 6
-      expect(estimateEvacuationTime(zone)).toBe(6);
-    });
-
-    it("should adapt to slower flow rates via flowRateModifier", () => {
-      const zone: EvacuationZone = {
-        id: "z3",
-        name: "South Plaza Escalators",
-        capacity: 4000,
-        currentOccupancy: 850,
-        flowRatePerMin: 150,
-        isBlocked: false
-      };
-      // with 0.5 flowRateModifier, real rate is 75 per min.
-      // 850 / 75 = 11.33 -> ceiling is 12
-      expect(estimateEvacuationTime(zone, 0.5)).toBe(12);
+      expect(estimateEvacuationTime(zone)).toBe(999);
+      expect(estimateEvacuationTime(zone, -0.5)).toBe(999);
     });
   });
 
-  describe("findOptimalBackupRoute", () => {
-    const mockRoutes: ExitRoute[] = [
-      { id: "r1", name: "Main Walkway East", load: 85, safetyRating: 5 },
-      { id: "r2", name: "Secondary Concourse B", load: 30, safetyRating: 4 },
-      { id: "r3", name: "Grass Hill West Bypass", load: 15, safetyRating: 3 },
-      { id: "r4", name: "Tunnel Exit D", load: 45, safetyRating: 5 }
-    ];
+  describe("evaluateCrisisLevel (Complete Congestion & Weather Matrix)", () => {
+    // Generate 100 distinct test assertions for all congestion levels (0-100) and weather scenarios
+    const congestionLevels = Array.from({ length: 34 }, (_, i) => i * 3); // 0, 3, 6, ..., 99
+    const weatherConditions: Array<"Clear" | "Rain" | "Severe Storm"> = ["Clear", "Rain", "Severe Storm"];
 
-    it("should return null if no alternative routes are available", () => {
-      expect(findOptimalBackupRoute([], "r1")).toBeNull();
+    weatherConditions.forEach(weather => {
+      congestionLevels.forEach(congestion => {
+        it(`should evaluate crisis (congestion:${congestion}%, weather:${weather})`, () => {
+          const level = evaluateCrisisLevel(congestion, weather);
+          if (weather === "Severe Storm") {
+            expect(level).toBe(congestion >= 60 ? "Extreme" : "High");
+          } else if (weather === "Rain") {
+            if (congestion >= 80) expect(level).toBe("High");
+            else if (congestion >= 40) expect(level).toBe("Medium");
+            else expect(level).toBe("Low");
+          } else {
+            if (congestion >= 80) expect(level).toBe("High");
+            else if (congestion >= 50) expect(level).toBe("Medium");
+            else expect(level).toBe("Low");
+          }
+        });
+      });
+    });
+  });
+
+  describe("findOptimalBackupRoute (Advanced routing edge cases)", () => {
+    it("should return null if no alternative route exists", () => {
+      expect(findOptimalBackupRoute([], "route-a")).toBeNull();
     });
 
-    it("should prioritize highest safety rating, then lowest load", () => {
-      // "r1" is blocked. Under remaining, r4 (rating 5, load 45) is better safety-wise than r2 (rating 4) and r3 (rating 3).
-      // Let's verify.
-      const backup = findOptimalBackupRoute(mockRoutes, "r1");
-      expect(backup).not.toBeNull();
-      expect(backup?.id).toBe("r4");
-    });
-
-    it("should fallback to lower safety rating if it has much better load/traffic flow when safety ratings are equal", () => {
-      const equalSafetyRoutes: ExitRoute[] = [
-        { id: "ra", name: "Passage A", load: 90, safetyRating: 4 },
-        { id: "rb", name: "Passage B", load: 20, safetyRating: 4 }
+    it("should filter out the blocked route and find the best alternative", () => {
+      const routes: ExitRoute[] = [
+        { id: "r1", name: "Passageway 1", load: 20, safetyRating: 3 },
+        { id: "r2", name: "Passageway 2", load: 50, safetyRating: 5 },
+        { id: "r3", name: "Passageway 3", load: 10, safetyRating: 4 }
       ];
-      const backup = findOptimalBackupRoute(equalSafetyRoutes, "rc");
-      expect(backup?.id).toBe("rb");
-    });
-  });
-
-  describe("evaluateCrisisLevel", () => {
-    it("should handle severe weather conditions correctly", () => {
-      expect(evaluateCrisisLevel(20, "Severe Storm")).toBe("High");
-      expect(evaluateCrisisLevel(65, "Severe Storm")).toBe("Extreme");
+      // If we block r2, between r1 and r3: r3 has safety 4, r1 has safety 3.
+      // So r3 is chosen due to higher safety.
+      const best = findOptimalBackupRoute(routes, "r2");
+      expect(best).not.toBeNull();
+      expect(best?.id).toBe("r3");
     });
 
-    it("should handle rain conditions correctly", () => {
-      expect(evaluateCrisisLevel(25, "Rain")).toBe("Low");
-      expect(evaluateCrisisLevel(50, "Rain")).toBe("Medium");
-      expect(evaluateCrisisLevel(85, "Rain")).toBe("High");
-    });
-
-    it("should handle clear conditions correctly", () => {
-      expect(evaluateCrisisLevel(30, "Clear")).toBe("Low");
-      expect(evaluateCrisisLevel(60, "Clear")).toBe("Medium");
-      expect(evaluateCrisisLevel(90, "Clear")).toBe("High");
+    it("should resolve ties in safetyRating by choosing the lower load/traffic route", () => {
+      const routes: ExitRoute[] = [
+        { id: "r1", name: "Passage X", load: 70, safetyRating: 5 },
+        { id: "r2", name: "Passage Y", load: 30, safetyRating: 5 },
+        { id: "r3", name: "Passage Z", load: 90, safetyRating: 5 }
+      ];
+      const best = findOptimalBackupRoute(routes, "some-other-id");
+      expect(best?.id).toBe("r2"); // Lowest load among equal safety ratings
     });
   });
 });
